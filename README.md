@@ -1,3 +1,17 @@
+<!--
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT NAME: Space-Track Data Downloader
+FILE:         README.md
+PATH:         space-track-data-downloader/README.md
+AUTHOR:       Sooraj Suresh
+DATE:         May 2026
+VERSION:      1.0.0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESCRIPTION:  Provides project overview, installation steps, usage instructions,
+              examples, troubleshooting, and development notes.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-->
+
 # Space-Track Data Downloader
 
 An interactive Python command-line downloader and query builder for Space-Track.org data.

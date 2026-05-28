@@ -1,30 +1,26 @@
-"""
-query_builder.py
-
-Utilities for building Space-Track.org REST API query URLs safely.
-
-This module does not perform network requests. It only builds URLs and query
-paths that can be passed to spacetrack_client.py.
-
-The main function is build_query_url(), which creates URLs like:
-
-https://www.space-track.org/basicspacedata/query/class/gp/DECAY_DATE/null-val/EPOCH/%3Enow-10/format/json
-
-It also supports publicfiles endpoints like:
-
-https://www.space-track.org/publicfiles/query/class/loadpublicdata
-
-and download URLs like:
-
-https://www.space-track.org/publicfiles/query/class/download?name=FILENAME
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         query_builder.py
+# PATH:         space-track-data-downloader/query_builder.py
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Builds safe Space-Track REST API query URLs for basicspacedata, 
+#               publicfiles, and model definition endpoints.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote, urlencode
-
 from dataset_configs import (
     BASIC_SPACE_DATA_CONTROLLER,
     PUBLIC_FILES_CONTROLLER,
@@ -37,7 +33,6 @@ from dataset_configs import (
     get_recommended_filters,
     validate_dataset_format,
 )
-
 
 BASE_URL = "https://www.space-track.org"
 QUERY_ACTION = "query"
@@ -53,24 +48,20 @@ class QueryBuilderError(Exception):
     Base exception for query-builder errors.
     """
 
-
 class InvalidDatasetError(QueryBuilderError):
     """
     Raised when a dataset key is invalid.
     """
-
 
 class InvalidFormatError(QueryBuilderError):
     """
     Raised when an output format is invalid for a dataset.
     """
 
-
 class InvalidFilterError(QueryBuilderError):
     """
     Raised when a filter is invalid.
     """
-
 
 # =============================================================================
 # Data containers
@@ -154,7 +145,6 @@ class SpaceTrackQuery:
     raw_extra_path: str | None = None
     publicfiles_download_name: str | None = None
 
-
 # =============================================================================
 # URL encoding helpers
 # =============================================================================
@@ -197,7 +187,6 @@ def encode_path_value(value: Any) -> str:
 
     return quote(text, safe=",-.~")
 
-
 def encode_predicate_name(predicate: str) -> str:
     """
     Encode a Space-Track predicate name.
@@ -211,7 +200,6 @@ def encode_predicate_name(predicate: str) -> str:
         raise InvalidFilterError("Predicate name cannot be empty.")
 
     return quote(text, safe="_")
-
 
 def encode_orderby_value(orderby: str) -> str:
     """
@@ -231,7 +219,6 @@ def encode_orderby_value(orderby: str) -> str:
 
     return quote(text, safe=",_")
 
-
 def encode_predicates(predicates: list[str] | tuple[str, ...]) -> str:
     """
     Encode a predicates list as a comma-separated Space-Track value.
@@ -250,7 +237,6 @@ def encode_predicates(predicates: list[str] | tuple[str, ...]) -> str:
 
     return ",".join(encoded)
 
-
 def normalize_filter_value(value: Any) -> str:
     """
     Convert a filter value to a stripped string.
@@ -266,7 +252,6 @@ def normalize_filter_value(value: Any) -> str:
         raise InvalidFilterError("Filter value cannot be empty.")
 
     return text
-
 
 def normalize_filters(filters: dict[str, Any] | None) -> dict[str, str]:
     """
@@ -322,7 +307,6 @@ def build_filter_path(filters: dict[str, Any] | None) -> str:
 
     return "/" + "/".join(parts)
 
-
 def build_predicates_path(predicates: list[str] | tuple[str, ...] | None) -> str:
     """
     Build the /predicates/... path segment.
@@ -331,7 +315,6 @@ def build_predicates_path(predicates: list[str] | tuple[str, ...] | None) -> str
         return ""
 
     return f"/predicates/{encode_predicates(predicates)}"
-
 
 def build_orderby_path(orderby: str | None) -> str:
     """
@@ -346,7 +329,6 @@ def build_orderby_path(orderby: str | None) -> str:
         return ""
 
     return f"/orderby/{encode_orderby_value(orderby_text)}"
-
 
 def build_limit_path(limit: int | None, offset: int | None = None) -> str:
     """
@@ -378,7 +360,6 @@ def build_limit_path(limit: int | None, offset: int | None = None) -> str:
 
     return f"/limit/{limit},{offset}"
 
-
 def build_format_path(output_format: str | None) -> str:
     """
     Build the /format/... path segment.
@@ -394,7 +375,6 @@ def build_format_path(output_format: str | None) -> str:
         return ""
 
     return f"/format/{quote(fmt, safe='')}"
-
 
 def build_metadata_path(
     dataset_key: str,
@@ -414,7 +394,6 @@ def build_metadata_path(
 
     return "/metadata/true"
 
-
 def build_empty_result_path(show_empty: bool) -> str:
     """
     Build the /emptyresult/show path segment.
@@ -423,7 +402,6 @@ def build_empty_result_path(show_empty: bool) -> str:
         return ""
 
     return "/emptyresult/show"
-
 
 def build_favorites_path(favorites: str | None) -> str:
     """
@@ -439,7 +417,6 @@ def build_favorites_path(favorites: str | None) -> str:
 
     return f"/favorites/{encode_path_value(text)}"
 
-
 def build_distinct_path(distinct: bool) -> str:
     """
     Build the /distinct/true path segment.
@@ -448,7 +425,6 @@ def build_distinct_path(distinct: bool) -> str:
         return ""
 
     return "/distinct/true"
-
 
 def normalize_raw_extra_path(raw_extra_path: str | None) -> str:
     """
@@ -472,7 +448,6 @@ def normalize_raw_extra_path(raw_extra_path: str | None) -> str:
 
     return text.rstrip("/")
 
-
 # =============================================================================
 # Dataset helpers
 # =============================================================================
@@ -485,7 +460,6 @@ def get_dataset_config(dataset_key: str) -> DatasetConfig:
         return get_dataset(dataset_key)
     except KeyError as exc:
         raise InvalidDatasetError(str(exc)) from exc
-
 
 def resolve_output_format(dataset_key: str, output_format: str | None) -> str:
     """
@@ -504,7 +478,6 @@ def resolve_output_format(dataset_key: str, output_format: str | None) -> str:
         raise InvalidFormatError(str(exc)) from exc
 
     return fmt
-
 
 def apply_recommended_filters(
     dataset_key: str,
@@ -528,7 +501,6 @@ def apply_recommended_filters(
 
     return merged
 
-
 def ensure_publicfiles_download_name(query: SpaceTrackQuery) -> None:
     """
     Validate that publicfiles download requests have a download name.
@@ -544,7 +516,6 @@ def ensure_publicfiles_download_name(query: SpaceTrackQuery) -> None:
                 "publicfiles_download requires publicfiles_download_name "
                 "or a filters['name'] value."
             )
-
 
 # =============================================================================
 # Main URL builders
@@ -600,7 +571,6 @@ def build_basicspacedata_url(
 
     return base_url.rstrip("/") + path
 
-
 def build_publicfiles_url(
     dataset: DatasetConfig,
     filters: dict[str, Any] | None = None,
@@ -642,7 +612,6 @@ def build_publicfiles_url(
         return f"{url}?{query_string}"
 
     return url
-
 
 def build_query_url(
     dataset_key: str,
@@ -745,7 +714,6 @@ def build_query_url(
         base_url=base_url,
     )
 
-
 def build_query_url_from_object(
     query: SpaceTrackQuery,
     use_recommended_filters: bool = False,
@@ -773,7 +741,6 @@ def build_query_url_from_object(
         use_recommended_filters=use_recommended_filters,
         base_url=base_url,
     )
-
 
 # =============================================================================
 # Model definition URL builders
@@ -836,7 +803,6 @@ def build_modeldef_url_for_class(
 
     return base_url.rstrip("/") + path
 
-
 # =============================================================================
 # Query preview / debugging helpers
 # =============================================================================
@@ -853,7 +819,6 @@ def build_relative_query_path(url: str, base_url: str = BASE_URL) -> str:
         return url[len(clean_base):]
 
     return url
-
 
 def summarize_query(
     dataset_key: str,
@@ -930,7 +895,6 @@ def summarize_query(
         "relative_path": build_relative_query_path(url),
     }
 
-
 def print_query_summary(summary: dict[str, Any]) -> None:
     """
     Print a human-readable query summary.
@@ -990,7 +954,6 @@ def print_query_summary(summary: dict[str, Any]) -> None:
 
     print("=" * 72)
 
-
 # =============================================================================
 # Convenience builders for common workflows
 # =============================================================================
@@ -1046,7 +1009,6 @@ def build_latest_gp_url(
         limit=limit,
     )
 
-
 def build_satcat_url(
     current_only: bool = True,
     output_format: str = "json",
@@ -1068,7 +1030,6 @@ def build_satcat_url(
         orderby=orderby,
         limit=limit,
     )
-
 
 def build_decay_url(
     recent_msg_days: int | None = None,
@@ -1094,7 +1055,6 @@ def build_decay_url(
         limit=limit,
     )
 
-
 def build_cdm_public_url(
     created_days: int | None = 1,
     output_format: str = "json",
@@ -1118,7 +1078,6 @@ def build_cdm_public_url(
         orderby=orderby,
         limit=limit,
     )
-
 
 # =============================================================================
 # Self-test
@@ -1149,7 +1108,6 @@ def _self_test() -> None:
 
     for url in examples:
         print(f"  {url}")
-
 
 if __name__ == "__main__":
     _self_test()

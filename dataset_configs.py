@@ -1,21 +1,25 @@
-"""
-dataset_configs.py
-
-Configuration definitions for the Space-Track Data Downloader.
-
-This file contains user-facing dataset menus, Space-Track API class mappings,
-supported output formats, common filters, object-type presets, orbit-regime
-presets, and helper functions used by the interactive CLI.
-
-This file does not make network requests. It only describes what the downloader
-can query.
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         dataset_configs.py
+# PATH:         space-track-data-downloader/dataset_configs.py
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Defines dataset mappings, supported formats, filter presets, menu groups, 
+#               and helper functions for Space-Track API classes.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
-
 
 # =============================================================================
 # Space-Track controllers
@@ -23,7 +27,6 @@ from typing import Any
 
 BASIC_SPACE_DATA_CONTROLLER = "basicspacedata"
 PUBLIC_FILES_CONTROLLER = "publicfiles"
-
 
 # =============================================================================
 # Supported output formats
@@ -51,7 +54,6 @@ STRUCTURED_FORMATS: set[str] = {
     "json",
     "csv",
 }
-
 
 # =============================================================================
 # Common object types

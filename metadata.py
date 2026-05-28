@@ -1,33 +1,23 @@
-"""
-metadata.py
-
-Metadata helpers for the Space-Track Data Downloader.
-
-This module creates and saves sidecar metadata files for each download.
-
-A typical output pair should look like:
-
-downloads/spacetrack_gp_20260528_113000.json
-downloads/spacetrack_gp_20260528_113000_meta.json
-
-The metadata file stores:
-
-- Dataset information
-- Query URL
-- Relative Space-Track path
-- Filters
-- Output format
-- Exported file path
-- File size
-- Estimated record count
-- Timestamp
-- Tool/runtime information
-
-This module does not make network requests.
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         metadata.py 
+# PATH:         space-track-data-downloader/metadata.py 
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Creates, serializes, saves, and reads metadata sidecar files for 
+#               each Space-Track data download.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 import getpass
 import json
 import platform
@@ -36,15 +26,12 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 from dataset_configs import get_dataset
 from exporters import ExportResult
-
 
 DEFAULT_METADATA_SUFFIX = "_meta"
 TOOL_NAME = "Space-Track Data Downloader"
 TOOL_VERSION = "1.0.0"
-
 
 # =============================================================================
 # Exceptions
@@ -54,7 +41,6 @@ class MetadataError(Exception):
     """
     Base exception for metadata errors.
     """
-
 
 class MetadataWriteError(MetadataError):
     """
@@ -72,13 +58,11 @@ def utc_now() -> datetime:
     """
     return datetime.now(timezone.utc)
 
-
 def utc_now_iso() -> str:
     """
     Return the current UTC time as an ISO-8601 string.
     """
     return utc_now().isoformat()
-
 
 def utc_now_filename_timestamp() -> str:
     """
@@ -103,7 +87,6 @@ class RuntimeMetadata:
     platform: str = field(default_factory=platform.platform)
     username: str = field(default_factory=getpass.getuser)
     created_utc: str = field(default_factory=utc_now_iso)
-
 
 @dataclass
 class DownloadMetadata:
@@ -229,7 +212,6 @@ class DownloadMetadata:
     notes: list[str]
     runtime: RuntimeMetadata
 
-
 # =============================================================================
 # Path helpers
 # =============================================================================
@@ -250,7 +232,6 @@ def metadata_path_for_output(
     metadata_filename = f"{path.stem}{suffix}.json"
 
     return path.with_name(metadata_filename)
-
 
 def avoid_overwrite(path: str | Path) -> Path:
     """
@@ -300,14 +281,12 @@ def to_jsonable(value: Any) -> Any:
 
     return value
 
-
 def metadata_to_dict(metadata: DownloadMetadata) -> dict[str, Any]:
     """
     Convert DownloadMetadata to a JSON-serializable dictionary.
     """
     data = asdict(metadata)
     return to_jsonable(data)
-
 
 def metadata_to_json(
     metadata: DownloadMetadata,
@@ -322,7 +301,6 @@ def metadata_to_json(
         indent=indent,
         ensure_ascii=False,
     )
-
 
 # =============================================================================
 # Metadata creation
@@ -371,7 +349,6 @@ def build_notes(
 
     return notes
 
-
 def create_download_metadata(
     *,
     query_summary: dict[str, Any],
@@ -408,12 +385,9 @@ def create_download_metadata(
     """
     dataset_key = str(query_summary["dataset_key"])
     dataset = get_dataset(dataset_key)
-
     output_format = str(query_summary.get("output_format") or export_result.output_format)
-
     metadata_requested = bool(query_summary.get("metadata_requested", False))
     metadata_supported = bool(query_summary.get("metadata_supported", False))
-
     notes = build_notes(
         output_format=output_format,
         estimated_record_count=export_result.record_count,
@@ -525,7 +499,6 @@ def write_metadata_file(
 
     return path
 
-
 def save_metadata_for_export(
     *,
     query_summary: dict[str, Any],
@@ -564,7 +537,6 @@ def save_metadata_for_export(
         print_metadata_summary(written_path, metadata)
 
     return written_path
-
 
 # =============================================================================
 # Metadata reading
@@ -630,7 +602,6 @@ def print_metadata_summary(
 
     print("=" * 72)
 
-
 def print_metadata_file_summary(path: str | Path) -> None:
     """
     Read a metadata file and print a short summary.
@@ -649,7 +620,6 @@ def print_metadata_file_summary(path: str | Path) -> None:
     print(f"Query path    : {data.get('relative_query_path')}")
     print("=" * 72)
 
-
 # =============================================================================
 # Self-test
 # =============================================================================
@@ -658,7 +628,7 @@ def _self_test() -> None:
     """
     Minimal metadata self-test.
 
-    This creates a temporary-looking metadata object. It assumes exporters.py
+    This creates a temporary-looking metadata object. It assumes metadata.py    
     is available and working.
     """
     from exporters import export_json_object

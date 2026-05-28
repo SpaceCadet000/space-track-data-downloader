@@ -1,25 +1,23 @@
-"""
-spacetrack_client.py
-
-HTTP client for Space-Track.org.
-
-This module handles:
-
-- Reading credentials from environment variables
-- Prompting for credentials when environment variables are missing
-- Logging in through /ajaxauth/login
-- Checking the current session through /app/data/whoami
-- Logging out through /ajaxauth/logout
-- Sending GET requests to Space-Track query URLs
-- Downloading text or binary responses
-- Basic retry handling for temporary network/server failures
-
-This module should not contain interactive dataset menus. It is only the
-Space-Track connection/session layer.
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         spacetrack_client.py
+# PATH:         space-track-data-downloader/spacetrack_client.py
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Handles Space-Track authentication, session management, HTTP requests, 
+#               retries, downloads, and session status checks.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 import getpass
 import json
 import os
@@ -29,7 +27,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
-
 import requests
 
 
@@ -37,12 +34,10 @@ BASE_URL = "https://www.space-track.org"
 LOGIN_ENDPOINT = f"{BASE_URL}/ajaxauth/login"
 LOGOUT_ENDPOINT = f"{BASE_URL}/ajaxauth/logout"
 WHOAMI_ENDPOINT = f"{BASE_URL}/app/data/whoami"
-
 DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_DOWNLOAD_TIMEOUT_SECONDS = 300
 DEFAULT_RETRIES = 3
 DEFAULT_RETRY_DELAY_SECONDS = 5.0
-
 ENV_USERNAME_KEYS = (
     "SPACETRACK_USER",
     "SPACETRACK_USERNAME",
@@ -57,7 +52,6 @@ ENV_PASSWORD_KEYS = (
     "SPACE_TRACK_PASSWORD",
 )
 
-
 # =============================================================================
 # Exceptions
 # =============================================================================
@@ -67,24 +61,20 @@ class SpaceTrackClientError(Exception):
     Base exception for Space-Track client errors.
     """
 
-
 class SpaceTrackAuthenticationError(SpaceTrackClientError):
     """
     Raised when authentication fails.
     """
-
 
 class SpaceTrackRequestError(SpaceTrackClientError):
     """
     Raised when a request fails after retries.
     """
 
-
 class SpaceTrackConfigurationError(SpaceTrackClientError):
     """
     Raised when client configuration is invalid.
     """
-
 
 # =============================================================================
 # Data containers
@@ -105,7 +95,6 @@ class SpaceTrackCredentials:
 
     username: str
     password: str
-
 
 @dataclass
 class SpaceTrackResponse:
@@ -145,7 +134,6 @@ class SpaceTrackResponse:
         """
         return json.loads(self.text)
 
-
 @dataclass
 class WhoAmI:
     """
@@ -164,7 +152,6 @@ class WhoAmI:
         raw:
             Raw parsed JSON response.
     """
-
     logged_in: bool
     identity: str | None
     session_expiration: str | None
@@ -186,7 +173,6 @@ def _first_env_value(keys: tuple[str, ...]) -> str | None:
             return value.strip()
 
     return None
-
 
 def load_credentials_from_environment() -> SpaceTrackCredentials | None:
     """
@@ -210,12 +196,10 @@ def load_credentials_from_environment() -> SpaceTrackCredentials | None:
     """
     username = _first_env_value(ENV_USERNAME_KEYS)
     password = _first_env_value(ENV_PASSWORD_KEYS)
-
     if username and password:
         return SpaceTrackCredentials(username=username, password=password)
 
     return None
-
 
 def prompt_for_credentials(
     existing_username: str | None = None,
@@ -250,7 +234,6 @@ def prompt_for_credentials(
         raise SpaceTrackConfigurationError("Password cannot be empty.")
 
     return SpaceTrackCredentials(username=username, password=password)
-
 
 def get_credentials(
     allow_prompt: bool = True,
@@ -296,7 +279,6 @@ def utc_now_iso() -> str:
     """
     return datetime.now(timezone.utc).isoformat()
 
-
 def is_space_track_url(url: str) -> bool:
     """
     Return True if a URL belongs to www.space-track.org.
@@ -306,7 +288,6 @@ def is_space_track_url(url: str) -> bool:
     return parsed.scheme in {"http", "https"} and parsed.netloc.endswith(
         "space-track.org"
     )
-
 
 def ensure_space_track_url(url: str) -> None:
     """
@@ -318,7 +299,6 @@ def ensure_space_track_url(url: str) -> None:
         raise SpaceTrackConfigurationError(
             f"Refusing to request non-Space-Track URL: {url}"
         )
-
 
 def looks_like_login_failure(response_text: str) -> bool:
     """
@@ -340,7 +320,6 @@ def looks_like_login_failure(response_text: str) -> bool:
 
     return any(marker in text for marker in failure_markers)
 
-
 def response_preview(text: str, max_chars: int = 500) -> str:
     """
     Return a short response preview for error messages.
@@ -349,7 +328,6 @@ def response_preview(text: str, max_chars: int = 500) -> str:
         return text
 
     return text[:max_chars] + "..."
-
 
 def response_to_spacetrack_response(
     response: requests.Response,
@@ -367,7 +345,6 @@ def response_to_spacetrack_response(
         elapsed_seconds=elapsed_seconds,
     )
 
-
 def is_retryable_status(status_code: int) -> bool:
     """
     Return True if an HTTP status code should usually be retried.
@@ -383,7 +360,6 @@ def is_retryable_status(status_code: int) -> bool:
         504,
     }
 
-
 def sleep_before_retry(
     attempt: int,
     retry_delay_seconds: float,
@@ -394,7 +370,6 @@ def sleep_before_retry(
     delay = retry_delay_seconds * attempt
     print(f"[*] Retrying in {delay:.1f} seconds...")
     time.sleep(delay)
-
 
 # =============================================================================
 # Main client
@@ -414,7 +389,6 @@ class SpaceTrackClient:
         print(response.text)
         client.logout()
     """
-
     def __init__(
         self,
         base_url: str = BASE_URL,

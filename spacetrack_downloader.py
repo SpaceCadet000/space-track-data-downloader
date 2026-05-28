@@ -1,46 +1,26 @@
-"""
-spacetrack_downloader.py
-
-Main interactive command-line interface for the Space-Track Data Downloader.
-
-This script lets a user:
-
-- Log in to Space-Track.org
-- Select a dataset group
-- Select a Space-Track dataset/class
-- Configure common filters interactively
-- Add advanced custom predicate/value filters
-- Choose output format
-- Preview the final REST query URL
-- Download the data
-- Save the response file
-- Save sidecar metadata
-
-Run:
-
-    python spacetrack_downloader.py
-
-Environment variables supported for credentials:
-
-    SPACETRACK_USER
-    SPACETRACK_PASS
-
-Also supported:
-
-    SPACETRACK_USERNAME
-    SPACETRACK_PASSWORD
-    SPACE_TRACK_USER
-    SPACE_TRACK_PASS
-    SPACE_TRACK_USERNAME
-    SPACE_TRACK_PASSWORD
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         spacetrack_downloader.py
+# PATH:         space-track-data-downloader/spacetrack_downloader.py
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Provides the main interactive command-line interface for selecting datasets, 
+#               configuring filters, downloading data, and saving outputs.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 import sys
 from pathlib import Path
 from typing import Any
-
 from dataset_configs import (
     COUNTRY_PRESETS,
     CREATION_DATE_RECENCY_FILTERS,
@@ -87,10 +67,8 @@ from spacetrack_client import (
     create_logged_in_client,
 )
 
-
 APP_NAME = "Space-Track Data Downloader"
 APP_VERSION = "1.0.0"
-
 
 # =============================================================================
 # Terminal display helpers
@@ -104,7 +82,6 @@ def print_header(title: str) -> None:
     print(title)
     print("=" * 78)
 
-
 def print_subheader(title: str) -> None:
     """
     Print a smaller section header.
@@ -112,7 +89,6 @@ def print_subheader(title: str) -> None:
     print("\n" + "-" * 78)
     print(title)
     print("-" * 78)
-
 
 def print_app_banner() -> None:
     """
@@ -125,20 +101,17 @@ def print_app_banner() -> None:
         "the downloaded response plus metadata."
     )
 
-
 def print_warning(message: str) -> None:
     """
     Print a warning message.
     """
     print(f"\n[!] {message}")
 
-
 def print_info(message: str) -> None:
     """
     Print an informational message.
     """
     print(f"[*] {message}")
-
 
 def print_success(message: str) -> None:
     """
@@ -156,7 +129,6 @@ def prompt_enter_to_continue() -> None:
     Wait for the user to press Enter.
     """
     input("\nPress Enter to continue...")
-
 
 def prompt_text(
     prompt: str,
@@ -195,7 +167,6 @@ def prompt_text(
 
         print("Please enter a value.")
 
-
 def prompt_yes_no(
     prompt: str,
     *,
@@ -219,7 +190,6 @@ def prompt_yes_no(
             return False
 
         print("Please enter y or n.")
-
 
 def prompt_int(
     prompt: str,
@@ -258,7 +228,6 @@ def prompt_int(
             continue
 
         return value
-
 
 def prompt_choice(
     title: str,
@@ -346,7 +315,6 @@ def prompt_choice(
 
         print("Selection out of range.")
 
-
 def prompt_multi_choice(
     title: str,
     options: list[tuple[str, str]],
@@ -410,7 +378,6 @@ def prompt_multi_choice(
 
         print("Invalid selection. Please try again.")
 
-
 # =============================================================================
 # Menu option builders
 # =============================================================================
@@ -430,7 +397,6 @@ def dataset_group_options() -> list[tuple[str, str]]:
 
     return options
 
-
 def dataset_options_for_group(group_key: str) -> list[tuple[str, str]]:
     """
     Return dataset options for a selected group.
@@ -446,7 +412,6 @@ def dataset_options_for_group(group_key: str) -> list[tuple[str, str]]:
 
     return options
 
-
 def format_options_for_dataset(dataset_key: str) -> list[tuple[str, str]]:
     """
     Return output format options for a dataset.
@@ -461,7 +426,6 @@ def format_options_for_dataset(dataset_key: str) -> list[tuple[str, str]]:
 
     return options
 
-
 def object_type_options() -> list[tuple[str, str]]:
     """
     Return object-type preset options.
@@ -473,7 +437,6 @@ def object_type_options() -> list[tuple[str, str]]:
         )
         for key, value in OBJECT_TYPE_FILTERS.items()
     ]
-
 
 def orbit_regime_options() -> list[tuple[str, str]]:
     """
@@ -487,7 +450,6 @@ def orbit_regime_options() -> list[tuple[str, str]]:
         for key, value in ORBIT_REGIME_FILTERS.items()
     ]
 
-
 def rcs_size_options() -> list[tuple[str, str]]:
     """
     Return RCS-size preset options.
@@ -499,7 +461,6 @@ def rcs_size_options() -> list[tuple[str, str]]:
         )
         for key, value in RCS_SIZE_FILTERS.items()
     ]
-
 
 def epoch_recency_options() -> list[tuple[str, str]]:
     """
@@ -513,7 +474,6 @@ def epoch_recency_options() -> list[tuple[str, str]]:
         for key, value in EPOCH_RECENCY_FILTERS.items()
     ]
 
-
 def creation_date_recency_options() -> list[tuple[str, str]]:
     """
     Return creation-date-recency preset options.
@@ -525,7 +485,6 @@ def creation_date_recency_options() -> list[tuple[str, str]]:
         )
         for key, value in CREATION_DATE_RECENCY_FILTERS.items()
     ]
-
 
 def country_options() -> list[tuple[str, str]]:
     """
@@ -539,7 +498,6 @@ def country_options() -> list[tuple[str, str]]:
         for key, value in COUNTRY_PRESETS.items()
     ]
 
-
 def favorite_options() -> list[tuple[str, str]]:
     """
     Return favorites preset options.
@@ -551,7 +509,6 @@ def favorite_options() -> list[tuple[str, str]]:
         )
         for key, value in FAVORITES_PRESETS.items()
     ]
-
 
 # =============================================================================
 # Filter helpers
@@ -570,7 +527,6 @@ def merge_filters(
     merged.update(new_filters)
     return merged
 
-
 def remove_empty_filters(filters: dict[str, str]) -> dict[str, str]:
     """
     Remove empty filter values.
@@ -580,7 +536,6 @@ def remove_empty_filters(filters: dict[str, str]) -> dict[str, str]:
         for predicate, value in filters.items()
         if str(value).strip() != ""
     }
-
 
 def ask_object_type_filter() -> dict[str, str]:
     """
@@ -594,7 +549,6 @@ def ask_object_type_filter() -> dict[str, str]:
 
     return dict(OBJECT_TYPE_FILTERS[selected]["filters"])
 
-
 def ask_orbit_regime_filter() -> dict[str, str]:
     """
     Ask the user for an orbit regime filter.
@@ -606,7 +560,6 @@ def ask_orbit_regime_filter() -> dict[str, str]:
     )
 
     return dict(ORBIT_REGIME_FILTERS[selected]["filters"])
-
 
 def ask_rcs_size_filter() -> dict[str, str]:
     """
@@ -620,7 +573,6 @@ def ask_rcs_size_filter() -> dict[str, str]:
 
     return dict(RCS_SIZE_FILTERS[selected]["filters"])
 
-
 def ask_epoch_recency_filter() -> dict[str, str]:
     """
     Ask the user for an EPOCH recency filter.
@@ -633,7 +585,6 @@ def ask_epoch_recency_filter() -> dict[str, str]:
 
     return dict(EPOCH_RECENCY_FILTERS[selected]["filters"])
 
-
 def ask_creation_date_recency_filter() -> dict[str, str]:
     """
     Ask the user for a CREATION_DATE recency filter.
@@ -643,9 +594,7 @@ def ask_creation_date_recency_filter() -> dict[str, str]:
         creation_date_recency_options(),
         default_key="all",
     )
-
     return dict(CREATION_DATE_RECENCY_FILTERS[selected]["filters"])
-
 
 def ask_country_filter(predicate_name: str) -> dict[str, str]:
     """
@@ -675,7 +624,6 @@ def ask_country_filter(predicate_name: str) -> dict[str, str]:
 
     return {predicate_name: value}
 
-
 def ask_favorites_filter() -> str | None:
     """
     Ask the user whether to apply a favorites filter.
@@ -695,7 +643,6 @@ def ask_favorites_filter() -> str | None:
     )
 
     return get_favorite_value(selected)
-
 
 def ask_norad_filter() -> dict[str, str]:
     """
@@ -722,7 +669,6 @@ def ask_norad_filter() -> dict[str, str]:
 
     return {"NORAD_CAT_ID": value}
 
-
 def ask_object_name_filter(predicate_name: str) -> dict[str, str]:
     """
     Ask for optional object-name or satellite-name wildcard filter.
@@ -746,7 +692,6 @@ def ask_object_name_filter(predicate_name: str) -> dict[str, str]:
     value = prompt_text(f"{predicate_name} value")
 
     return {predicate_name: value}
-
 
 def ask_date_range_filter(predicate_name: str) -> dict[str, str]:
     """
@@ -772,7 +717,6 @@ def ask_date_range_filter(predicate_name: str) -> dict[str, str]:
 
     return {predicate_name: value}
 
-
 def ask_limit() -> int | None:
     """
     Ask for optional result limit.
@@ -790,7 +734,6 @@ def ask_limit() -> int | None:
         min_value=1,
         allow_empty=False,
     )
-
 
 def ask_offset(limit: int | None) -> int | None:
     """
@@ -812,7 +755,6 @@ def ask_offset(limit: int | None) -> int | None:
         min_value=0,
         allow_empty=False,
     )
-
 
 def ask_orderby(dataset: DatasetConfig) -> str | None:
     """
@@ -846,7 +788,6 @@ def ask_orderby(dataset: DatasetConfig) -> str | None:
     )
 
     return prompt_text("orderby value")
-
 
 def ask_predicates(dataset_key: str) -> list[str] | None:
     """
@@ -896,7 +837,6 @@ def ask_predicates(dataset_key: str) -> list[str] | None:
 
     return predicates or None
 
-
 def ask_custom_filters() -> dict[str, str]:
     """
     Ask for advanced custom predicate/value filters.
@@ -943,7 +883,6 @@ def ask_custom_filters() -> dict[str, str]:
             break
 
     return filters
-
 
 # =============================================================================
 # Dataset-specific configuration flows
@@ -1000,7 +939,6 @@ def configure_gp_like_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "filters": remove_empty_filters(filters),
         "favorites": favorites,
     }
-
 
 def configure_satcat_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
@@ -1087,7 +1025,6 @@ def configure_satcat_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "favorites": None,
     }
 
-
 def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure decay or TIP dataset options.
@@ -1145,7 +1082,6 @@ def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "favorites": None,
     }
 
-
 def configure_cdm_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure public CDM dataset options.
@@ -1184,7 +1120,6 @@ def configure_cdm_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "favorites": None,
     }
 
-
 def configure_boxscore_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure boxscore dataset options.
@@ -1204,7 +1139,6 @@ def configure_boxscore_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "filters": remove_empty_filters(filters),
         "favorites": None,
     }
-
 
 def configure_publicfiles_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
@@ -1231,7 +1165,6 @@ def configure_publicfiles_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "publicfiles_download_name": publicfiles_download_name,
     }
 
-
 def configure_generic_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Generic configuration fallback for datasets without a custom flow.
@@ -1248,7 +1181,6 @@ def configure_generic_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         "filters": remove_empty_filters(filters),
         "favorites": None,
     }
-
 
 def configure_dataset_filters(dataset: DatasetConfig) -> dict[str, Any]:
     """
@@ -1273,7 +1205,6 @@ def configure_dataset_filters(dataset: DatasetConfig) -> dict[str, Any]:
         return configure_publicfiles_dataset(dataset)
 
     return configure_generic_dataset(dataset)
-
 
 # =============================================================================
 # Output/query configuration
@@ -1300,7 +1231,6 @@ def choose_output_format(dataset_key: str) -> str:
         )
 
     return selected
-
 
 def configure_query_options(dataset: DatasetConfig) -> dict[str, Any]:
     """
@@ -1353,7 +1283,6 @@ def configure_query_options(dataset: DatasetConfig) -> dict[str, Any]:
         "distinct": distinct,
     }
 
-
 def configure_export_options(dataset_key: str, output_format: str) -> dict[str, Any]:
     """
     Configure output filename/directory options.
@@ -1399,7 +1328,6 @@ def configure_export_options(dataset_key: str, output_format: str) -> dict[str, 
         "pretty_json": pretty_json,
     }
 
-
 # =============================================================================
 # Advanced custom query mode
 # =============================================================================
@@ -1422,7 +1350,6 @@ def choose_dataset_directly() -> DatasetConfig:
     )
 
     return get_dataset(selected)
-
 
 def run_advanced_custom_query(client: SpaceTrackClient) -> None:
     """
@@ -1460,7 +1387,6 @@ def run_advanced_custom_query(client: SpaceTrackClient) -> None:
         publicfiles_download_name=publicfiles_download_name,
         query_options=query_options,
     )
-
 
 # =============================================================================
 # Query execution
@@ -1612,7 +1538,6 @@ def execute_download_flow(
 
     print_success("Done.")
 
-
 def run_dataset_flow(client: SpaceTrackClient, dataset_key: str) -> None:
     """
     Run the full configuration/download flow for one dataset.
@@ -1680,7 +1605,6 @@ def run_main_menu(client: SpaceTrackClient) -> None:
         run_dataset_flow(client, selected_dataset)
         prompt_enter_to_continue()
 
-
 # =============================================================================
 # Startup checks
 # =============================================================================
@@ -1707,7 +1631,6 @@ def confirm_start() -> bool:
         "Continue?",
         default=True,
     )
-
 
 # =============================================================================
 # Main entry point

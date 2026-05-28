@@ -1,25 +1,23 @@
-"""
-exporters.py
-
-Export helpers for the Space-Track Data Downloader.
-
-This module handles:
-
-- Creating the downloads directory
-- Determining output file extensions
-- Building safe output filenames
-- Saving raw Space-Track responses
-- Saving text responses
-- Saving binary responses
-- Pretty-saving JSON responses when possible
-- Counting records for JSON, CSV, TLE, and 3LE outputs
-- Creating short previews for terminal display
-
-This module does not perform Space-Track API requests.
-"""
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  ███████╗██████╗  █████╗  ██████╗███████╗      ████████╗██████╗  █████╗  ██████╗██╗  ██╗
+#  ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔════╝      ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
+#  ███████╗██████╔╝███████║██║     █████╗           ██║   ██████╔╝███████║██║     █████╔╝
+#  ╚════██║██╔═══╝ ██╔══██║██║     ██╔══╝           ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
+#  ███████║██║     ██║  ██║╚██████╗███████╗         ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
+#  ╚══════╝╚═╝     ╚═╝  ╚═╝ ╚═════╝╚══════╝         ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PROJECT NAME: Space-Track Data Downloader
+# FILE:         exporters.py
+# PATH:         space-track-data-downloader/exporters.py
+# AUTHOR:       Sooraj Suresh
+# DATE:         May 2026
+# VERSION:      1.0.0
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# DESCRIPTION:  Saves Space-Track API responses to disk, creates output filenames, 
+#               estimates record counts, and prints export previews.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 from __future__ import annotations
-
 import csv
 import json
 import re
@@ -27,13 +25,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 from dataset_configs import get_file_extension, get_safe_dataset_filename_part
-
 
 DEFAULT_DOWNLOAD_DIR = Path("downloads")
 DEFAULT_FILENAME_PREFIX = "spacetrack"
-
 
 # =============================================================================
 # Exceptions
@@ -44,18 +39,15 @@ class ExporterError(Exception):
     Base exception for exporter errors.
     """
 
-
 class UnsupportedExportFormatError(ExporterError):
     """
     Raised when an unsupported output format is requested.
     """
 
-
 class FileWriteError(ExporterError):
     """
     Raised when writing a file fails.
     """
-
 
 # =============================================================================
 # Data containers
@@ -93,7 +85,6 @@ class ExportResult:
     record_count: int | None
     preview: str
 
-
 # =============================================================================
 # Path and filename helpers
 # =============================================================================
@@ -103,7 +94,6 @@ def utc_timestamp_for_filename() -> str:
     Return a compact UTC timestamp suitable for filenames.
     """
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
 
 def ensure_download_dir(download_dir: str | Path = DEFAULT_DOWNLOAD_DIR) -> Path:
     """
@@ -120,11 +110,9 @@ def ensure_download_dir(download_dir: str | Path = DEFAULT_DOWNLOAD_DIR) -> Path
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
-
 def sanitize_filename_part(value: str) -> str:
     """
     Sanitize a string so it can safely be used as part of a filename.
-
     Keeps letters, numbers, hyphens, underscores, and dots. Other characters
     are replaced with underscores.
     """
@@ -142,7 +130,6 @@ def sanitize_filename_part(value: str) -> str:
         return "unknown"
 
     return text.lower()
-
 
 def build_output_filename(
     dataset_key: str,
@@ -195,7 +182,6 @@ def build_output_filename(
 
     return f"{base_name}{extension}"
 
-
 def build_output_path(
     dataset_key: str,
     output_format: str,
@@ -219,7 +205,6 @@ def build_output_path(
     )
 
     return directory / filename
-
 
 def avoid_overwrite(path: str | Path) -> Path:
     """
@@ -246,7 +231,6 @@ def avoid_overwrite(path: str | Path) -> Path:
 
         counter += 1
 
-
 # =============================================================================
 # Response normalization helpers
 # =============================================================================
@@ -267,7 +251,6 @@ def normalize_text_content(content: str | bytes) -> str:
 
     return str(content)
 
-
 def normalize_binary_content(content: str | bytes) -> bytes:
     """
     Normalize binary content.
@@ -284,13 +267,11 @@ def normalize_binary_content(content: str | bytes) -> bytes:
 
     return str(content).encode("utf-8")
 
-
 def is_probably_binary(output_format: str) -> bool:
     """
     Return True if a format should normally be saved as binary.
     """
     return output_format.lower().strip() in {"raw", "bin", "zip"}
-
 
 def pretty_json_text(text: str) -> str:
     """
@@ -305,7 +286,6 @@ def pretty_json_text(text: str) -> str:
 
     return json.dumps(parsed, indent=2, ensure_ascii=False)
 
-
 def normalize_content_for_export(
     content: str | bytes,
     output_format: str,
@@ -314,7 +294,6 @@ def normalize_content_for_export(
 ) -> str | bytes:
     """
     Normalize content before saving based on output format.
-
     JSON can optionally be pretty-printed.
     Binary/raw formats are returned as bytes.
     """
@@ -329,7 +308,6 @@ def normalize_content_for_export(
         text = pretty_json_text(text)
 
     return text
-
 
 # =============================================================================
 # Record counting helpers
@@ -365,7 +343,6 @@ def count_json_records(text: str) -> int | None:
 
     return None
 
-
 def count_csv_records(text: str) -> int | None:
     """
     Count data rows in CSV text.
@@ -388,7 +365,6 @@ def count_csv_records(text: str) -> int | None:
 
     return max(0, len(rows) - 1)
 
-
 def count_tle_records(text: str) -> int:
     """
     Count TLE records in two-line TLE text.
@@ -409,11 +385,9 @@ def count_tle_records(text: str) -> int:
 
     return count
 
-
 def count_3le_records(text: str) -> int:
     """
     Count 3LE records in three-line TLE text.
-
     This counts groups where the second line starts with '1 ' and the third line
     starts with '2 '.
     """
@@ -434,7 +408,6 @@ def count_3le_records(text: str) -> int:
 def count_xml_records(text: str) -> int | None:
     """
     Estimate XML record count.
-
     This is intentionally conservative because XML structure may vary by class.
     """
     stripped = text.strip()
@@ -461,7 +434,6 @@ def count_xml_records(text: str) -> int | None:
 
     return None
 
-
 def count_html_rows(text: str) -> int | None:
     """
     Estimate record count in HTML table output by counting table row tags.
@@ -479,14 +451,12 @@ def count_html_rows(text: str) -> int | None:
 
     return max(0, row_count - 1)
 
-
 def count_records(
     content: str | bytes,
     output_format: str,
 ) -> int | None:
     """
     Count records or objects in Space-Track output.
-
     Returns:
         int or None if no reliable count can be determined.
     """
@@ -522,7 +492,6 @@ def count_records(
         return None
 
     return None
-
 
 # =============================================================================
 # Preview helpers
@@ -565,7 +534,6 @@ def make_text_preview(
 
     return preview
 
-
 def print_export_preview(
     export_result: ExportResult,
 ) -> None:
@@ -588,7 +556,6 @@ def print_export_preview(
     print("-" * 72)
     print(export_result.preview)
     print("=" * 72)
-
 
 # =============================================================================
 # File writing helpers
@@ -613,7 +580,6 @@ def write_text_file(
 
     return output_path
 
-
 def write_binary_file(
     path: str | Path,
     content: bytes,
@@ -632,7 +598,6 @@ def write_binary_file(
         ) from exc
 
     return output_path
-
 
 def export_response(
     content: str | bytes,
@@ -732,7 +697,6 @@ def export_response(
 
     return result
 
-
 def export_text_response(
     text: str,
     dataset_key: str,
@@ -762,7 +726,6 @@ def export_text_response(
         print_preview=print_preview,
     )
 
-
 def export_binary_response(
     content: bytes,
     dataset_key: str,
@@ -790,7 +753,6 @@ def export_binary_response(
         pretty_json=False,
         print_preview=print_preview,
     )
-
 
 # =============================================================================
 # Specialized helpers
@@ -825,7 +787,6 @@ def export_json_object(
         print_preview=print_preview,
     )
 
-
 def export_lines(
     lines: list[str] | tuple[str, ...],
     dataset_key: str,
@@ -855,7 +816,6 @@ def export_lines(
         pretty_json=False,
         print_preview=print_preview,
     )
-
 
 def export_public_file_bytes(
     content: bytes,
@@ -896,7 +856,6 @@ def export_public_file_bytes(
         print_export_preview(result)
 
     return result
-
 
 # =============================================================================
 # Self-test
