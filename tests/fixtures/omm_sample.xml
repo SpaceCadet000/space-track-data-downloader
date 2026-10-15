@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ndm>
+  <omm id="CCSDS_OMM_VERS" version="2.0">
+    <body><segment>
+      <metadata>
+        <OBJECT_NAME>ISS (ZARYA)</OBJECT_NAME>
+        <OBJECT_ID>1998-067A</OBJECT_ID>
+      </metadata>
+      <data><meanElements><EPOCH>2026-10-14T12:00:00.000000</EPOCH></meanElements></data>
+    </segment></body>
+  </omm>
+  <omm id="CCSDS_OMM_VERS" version="2.0">
+    <body><segment>
+      <metadata>
+        <OBJECT_NAME>NOAA 20</OBJECT_NAME>
+        <OBJECT_ID>2017-073A</OBJECT_ID>
+      </metadata>
+      <data><meanElements><EPOCH>2026-10-14T06:30:00.000000</EPOCH></meanElements></data>
+    </segment></body>
+  </omm>
+</ndm>

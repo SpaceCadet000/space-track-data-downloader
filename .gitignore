@@ -90,3 +90,5 @@ Thumbs.db
 *.bak
 *.swp
 *.swo
+# Test fixtures must be tracked despite the data-file rules above.
+!tests/fixtures/**
