@@ -541,6 +541,20 @@ def build_basicspacedata_url(
 
     Example:
         https://www.space-track.org/basicspacedata/query/class/gp/DECAY_DATE/null-val/EPOCH/%3Enow-10/orderby/NORAD_CAT_ID/format/json
+
+    Example with predicates, limit/offset, and metadata:
+        build_basicspacedata_url(
+            get_dataset("gp"),
+            filters={"OBJECT_TYPE": "ROCKET BODY", "NORAD_CAT_ID": "25544,43013"},
+            output_format="json",
+            predicates=["NORAD_CAT_ID", "OBJECT_NAME", "EPOCH"],
+            orderby="EPOCH desc",
+            limit=10,
+            offset=5,
+            metadata=True,
+        )
+
+        -> https://www.space-track.org/basicspacedata/query/class/gp/OBJECT_TYPE/ROCKET%20BODY/NORAD_CAT_ID/25544,43013/predicates/NORAD_CAT_ID,OBJECT_NAME,EPOCH/orderby/EPOCH%20desc/limit/10,5/metadata/true/format/json
     """
     if dataset.controller != BASIC_SPACE_DATA_CONTROLLER:
         raise QueryBuilderError(
