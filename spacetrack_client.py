@@ -707,6 +707,12 @@ class SpaceTrackClient:
                 last_response = response
                 last_elapsed = elapsed
 
+                # requests follows redirects, so re-check where we ended up.
+                if not allow_non_space_track_url and not is_space_track_url(response.url):
+                    raise SpaceTrackConfigurationError(
+                        f"Redirected to non-Space-Track URL: {response.url}"
+                    )
+
                 if response.status_code == 401:
                     self.logged_in = False
                     raise SpaceTrackAuthenticationError(

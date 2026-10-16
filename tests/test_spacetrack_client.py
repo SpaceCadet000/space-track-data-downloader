@@ -299,6 +299,12 @@ def test_non_space_track_url_refused_before_any_request(make_client) -> None:
 
     assert client.session.calls == []
 
+def test_redirect_to_non_space_track_url_is_refused(make_client) -> None:
+    client = make_client([FakeResponse(200, "ok", url="https://evil.example/x")])
+
+    with pytest.raises(SpaceTrackConfigurationError, match="Redirected"):
+        client.get(QUERY_URL)
+
 def test_non_space_track_url_allowed_when_opted_in(make_client) -> None:
     client = make_client([FakeResponse(200, "ok")])
     assert client.get("https://example.com/data", allow_non_space_track_url=True).text == "ok"
