@@ -309,11 +309,11 @@ def test_configure_gp_history_asks_norad_once(scripted_input) -> None:
     [
         ("satcat", [""] * 10, {"CURRENT": "Y"}),
         ("satcat_debut", [""] * 6, {"DEBUT": ">now-1"}),
-        ("satcat_change", [""] * 6, {}),
+        ("satcat_change", [""] * 6, {"CHANGE_DATE": ">now-7"}),
         ("launch_site", ["y", "afetr", "", ""], {"SITE_CODE": "AFETR"}),
-        ("decay", [""] * 9, {}),
-        ("tip", [""] * 5 + ["y", ""], {"HIGH_INTEREST": "Y"}),
-        ("cdm_public", [""] * 9, {}),
+        ("decay", [""] * 9, {"DECAY_EPOCH": ">now-7"}),
+        ("tip", [""] * 5 + ["y", ""], {"INSERT_EPOCH": ">now-0.042", "HIGH_INTEREST": "Y"}),
+        ("cdm_public", [""] * 9, {"CREATED": ">now-1"}),
         ("boxscore", ["y", menu_number(list(COUNTRY_PRESETS), "JPN"), ""], {"COUNTRY": "JPN"}),
     ],
 )
@@ -327,8 +327,8 @@ def test_configure_other_datasets(scripted_input, dataset_key, answers, expected
 def test_configure_decay_with_date_filters(scripted_input) -> None:
     scripted_input.set(
         "",                       # NORAD
-        "y", "y", ">now-3",       # MSG_EPOCH
-        "y", "y", ">now-7",       # DECAY_EPOCH
+        "y", ">now-3",            # MSG_EPOCH
+        "y", ">now-7",            # DECAY_EPOCH
         "", "", "", "y", "4", "", # name, country, RCS, PRECEDENCE, custom
     )
 
@@ -336,10 +336,6 @@ def test_configure_decay_with_date_filters(scripted_input) -> None:
 
     assert result["filters"] == {"MSG_EPOCH": ">now-3", "DECAY_EPOCH": ">now-7", "PRECEDENCE": "4"}
 
-@pytest.mark.xfail(
-    reason="BUG: an outer 'Filter by X?' prompt that defaults to Yes wraps an inner "
-    "date prompt that defaults to No, so accepting both defaults adds no filter"
-)
 @pytest.mark.parametrize(
     "dataset_key, predicate",
     [

@@ -693,18 +693,17 @@ def ask_object_name_filter(predicate_name: str) -> dict[str, str]:
 
     return {predicate_name: value}
 
-def ask_date_range_filter(predicate_name: str) -> dict[str, str]:
+def ask_date_range_filter(
+    predicate_name: str,
+    *,
+    default: str | None = None,
+) -> dict[str, str]:
     """
-    Ask for an optional date/date-range filter.
+    Ask for a date/date-range filter value.
+
+    Callers ask whether to filter by the predicate first, so this only
+    prompts for the value. Pressing Enter accepts default when one is given.
     """
-    use_filter = prompt_yes_no(
-        f"Filter by {predicate_name} date or date range?",
-        default=False,
-    )
-
-    if not use_filter:
-        return {}
-
     print(
         "\nExamples:\n"
         "  >now-7\n"
@@ -713,7 +712,7 @@ def ask_date_range_filter(predicate_name: str) -> dict[str, str]:
         "  <2025-12-31"
     )
 
-    value = prompt_text(f"{predicate_name} value")
+    value = prompt_text(f"{predicate_name} value", default=default)
 
     return {predicate_name: value}
 
@@ -1006,7 +1005,13 @@ def configure_satcat_dataset(dataset: DatasetConfig) -> dict[str, Any]:
 
     elif dataset.key == "satcat_change":
         if prompt_yes_no("Filter by CHANGE_DATE?", default=True):
-            filters = merge_filters(filters, ask_date_range_filter("CHANGE_DATE"))
+            filters = merge_filters(
+                filters,
+                ask_date_range_filter(
+                    "CHANGE_DATE",
+                    default=dataset.recommended_filters.get("CHANGE_DATE", ">now-7"),
+                ),
+            )
 
         filters = merge_filters(filters, ask_norad_filter())
         filters = merge_filters(filters, ask_object_name_filter("SATNAME"))
@@ -1045,7 +1050,13 @@ def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
             filters = merge_filters(filters, ask_date_range_filter("MSG_EPOCH"))
 
         if prompt_yes_no("Filter by DECAY_EPOCH?", default=True):
-            filters = merge_filters(filters, ask_date_range_filter("DECAY_EPOCH"))
+            filters = merge_filters(
+                filters,
+                ask_date_range_filter(
+                    "DECAY_EPOCH",
+                    default=dataset.recommended_filters.get("DECAY_EPOCH", ">now-7"),
+                ),
+            )
 
         if prompt_yes_no("Filter by object name?", default=False):
             filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
@@ -1067,7 +1078,13 @@ def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
 
     elif dataset.key == "tip":
         if prompt_yes_no("Filter by INSERT_EPOCH?", default=True):
-            filters = merge_filters(filters, ask_date_range_filter("INSERT_EPOCH"))
+            filters = merge_filters(
+                filters,
+                ask_date_range_filter(
+                    "INSERT_EPOCH",
+                    default=dataset.recommended_filters.get("INSERT_EPOCH", ">now-7"),
+                ),
+            )
 
         if prompt_yes_no("Filter by MSG_EPOCH?", default=False):
             filters = merge_filters(filters, ask_date_range_filter("MSG_EPOCH"))
@@ -1096,7 +1113,13 @@ def configure_cdm_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     print(dataset.description)
 
     if prompt_yes_no("Filter by CREATED date?", default=True):
-        filters = merge_filters(filters, ask_date_range_filter("CREATED"))
+        filters = merge_filters(
+            filters,
+            ask_date_range_filter(
+                "CREATED",
+                default=dataset.recommended_filters.get("CREATED", ">now-7"),
+            ),
+        )
 
     if prompt_yes_no("Filter by TCA date?", default=False):
         filters = merge_filters(filters, ask_date_range_filter("TCA"))
