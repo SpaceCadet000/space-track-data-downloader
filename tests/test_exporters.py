@@ -123,7 +123,6 @@ def test_count_csv_records(fixture_text) -> None:
     assert ex.count_csv_records("") == 0
     assert ex.count_csv_records('h1,h2\n"multi\nline",x\n') == 1
 
-@pytest.mark.xfail(reason="BUG: count_csv_records counts blank lines as data rows")
 def test_count_csv_records_ignores_blank_lines() -> None:
     assert ex.count_csv_records("h\n\nr1\n") == 1
 

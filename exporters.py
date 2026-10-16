@@ -356,7 +356,11 @@ def count_csv_records(text: str) -> int | None:
         return 0
 
     try:
-        rows = list(csv.reader(stripped.splitlines()))
+        rows = [
+            row
+            for row in csv.reader(stripped.splitlines())
+            if any(cell.strip() for cell in row)
+        ]
     except csv.Error:
         return None
 
