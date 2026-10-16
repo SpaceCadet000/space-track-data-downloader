@@ -309,16 +309,27 @@ def looks_like_login_failure(response_text: str) -> bool:
     """
     Heuristic check for login failure.
 
-    Space-Track login responses can vary. This function catches common failure
-    indicators while avoiding reliance on a single exact response.
+    Space-Track login responses can vary. The JSON {"Login": "Failed"} shape
+    is checked first; otherwise specific failure phrases are matched, so
+    incidental words such as "failed" or "invalid" elsewhere do not count.
     """
+    try:
+        parsed = json.loads(response_text)
+    except ValueError:
+        parsed = None
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("Login"), str):
+        return parsed["Login"].strip().lower() == "failed"
+
     text = response_text.lower()
 
     failure_markers = (
         "login failed",
-        "failed",
-        "invalid",
-        "incorrect",
+        "invalid credentials",
+        "invalid username",
+        "invalid password",
+        "incorrect username",
+        "incorrect password",
         "unauthorized",
         "forbidden",
     )

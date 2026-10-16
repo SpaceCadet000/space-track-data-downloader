@@ -130,6 +130,17 @@ def test_ensure_space_track_url_raises() -> None:
 def test_looks_like_login_failure(body, expected) -> None:
     assert sc.looks_like_login_failure(body) is expected
 
+@pytest.mark.parametrize(
+    "body, expected",
+    [
+        ('{"Login": "Failed"}', True),
+        ("Failed to load optional banner", False),
+        ('{"message": "invalid filter"}', False),
+    ],
+)
+def test_looks_like_login_failure_ignores_incidental_words(body, expected) -> None:
+    assert sc.looks_like_login_failure(body) is expected
+
 def test_response_preview_truncates() -> None:
     assert sc.response_preview("abc", max_chars=5) == "abc"
     assert sc.response_preview("abcdefgh", max_chars=5) == "abcde..."
