@@ -502,12 +502,13 @@ def write_metadata_file(
         Path to the written metadata file.
     """
     path = Path(metadata_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    if not overwrite:
-        path = avoid_overwrite(path)
 
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not overwrite:
+            path = avoid_overwrite(path)
+
         path.write_text(
             metadata_to_json(metadata) + "\n",
             encoding="utf-8",

@@ -203,6 +203,14 @@ def test_write_metadata_file_avoids_overwrite(tmp_path: Path) -> None:
 
     assert (first, second, third) == (target, tmp_path / "m_meta_1.json", target)
 
+def test_write_metadata_file_with_unusable_parent_raises_metadata_write_error(tmp_path: Path) -> None:
+    meta = md.create_download_metadata(query_summary=gp_summary(), export_result=make_export(tmp_path))
+    blocker = tmp_path / "blocker"
+    blocker.write_text("i am a file")
+
+    with pytest.raises(md.MetadataWriteError):
+        md.write_metadata_file(meta, blocker / "m_meta.json")
+
 def test_read_metadata_file_errors(tmp_path: Path) -> None:
     with pytest.raises(MetadataError, match="Failed to read"):
         md.read_metadata_file(tmp_path / "missing.json")
