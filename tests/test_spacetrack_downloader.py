@@ -336,6 +336,21 @@ def test_configure_decay_with_date_filters(scripted_input) -> None:
 
     assert result["filters"] == {"MSG_EPOCH": ">now-3", "DECAY_EPOCH": ">now-7", "PRECEDENCE": "4"}
 
+def test_configure_decay_object_name_asked_once(scripted_input) -> None:
+    scripted_input.set(
+        "",                       # NORAD
+        "",                       # MSG_EPOCH
+        "n",                      # DECAY_EPOCH
+        "y", "ISS~~",             # OBJECT_NAME
+        "", "", "", "",           # country, RCS, PRECEDENCE, custom
+    )
+
+    result = sd.configure_dataset_filters(get_dataset("decay"))
+
+    assert result["filters"] == {"OBJECT_NAME": "ISS~~"}
+    name_questions = [p for p in scripted_input.prompts if "object" in p.lower() and "[y/N]" in p]
+    assert len(name_questions) == 1
+
 @pytest.mark.parametrize(
     "dataset_key, predicate",
     [

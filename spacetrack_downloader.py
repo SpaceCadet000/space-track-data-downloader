@@ -1058,8 +1058,7 @@ def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
                 ),
             )
 
-        if prompt_yes_no("Filter by object name?", default=False):
-            filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
+        filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
 
         filters = merge_filters(filters, ask_country_filter("COUNTRY_CODE"))
 
