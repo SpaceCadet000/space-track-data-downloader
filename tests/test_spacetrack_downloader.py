@@ -535,14 +535,8 @@ def test_execute_download_flow_raw_format(scripted_input, tmp_path: Path) -> Non
     )
 
     assert client.get_calls[0][0].endswith("/publicfiles/query/class/download?name=file.zip")
-    bin_files = list(tmp_path.glob("*.bin"))
-    assert len(bin_files) == 1
-    assert bin_files[0].read_bytes() == b"\x00\x01binary"
+    assert (tmp_path / "file.zip").read_bytes() == b"\x00\x01binary"
 
-@pytest.mark.xfail(
-    reason="BUG: publicfiles_download always uses format 'raw', so the generic raw branch "
-    "runs first and the original filename branch (export_public_file_bytes) is unreachable"
-)
 def test_publicfiles_download_keeps_original_filename(scripted_input, tmp_path: Path) -> None:
     client = FakeClient(ok_response(text="", content=b"PK\x03\x04"))
     scripted_input.set("", str(tmp_path), "", "")

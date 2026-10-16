@@ -1484,18 +1484,9 @@ def execute_download_flow(
         return
 
     try:
-        if output_format == "raw":
-            export_result = export_binary_response(
-                content=response.content,
-                dataset_key=dataset.key,
-                output_format="raw",
-                download_dir=export_options["download_dir"],
-                custom_name=export_options["custom_name"],
-                overwrite=export_options["overwrite"],
-                print_preview=True,
-            )
-
-        elif dataset.key == "publicfiles_download":
+        # Checked before the generic raw branch: publicfiles_download is
+        # always raw, and should keep its original file name.
+        if dataset.key == "publicfiles_download":
             original_name = (
                 export_options["custom_name"]
                 or publicfiles_download_name
@@ -1506,6 +1497,17 @@ def execute_download_flow(
                 content=response.content,
                 original_name=original_name,
                 download_dir=export_options["download_dir"],
+                overwrite=export_options["overwrite"],
+                print_preview=True,
+            )
+
+        elif output_format == "raw":
+            export_result = export_binary_response(
+                content=response.content,
+                dataset_key=dataset.key,
+                output_format="raw",
+                download_dir=export_options["download_dir"],
+                custom_name=export_options["custom_name"],
                 overwrite=export_options["overwrite"],
                 print_preview=True,
             )

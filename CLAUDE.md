@@ -59,7 +59,7 @@ spacetrack_downloader.py  (prompts, menus, per-dataset filter wizards, orchestra
 - **Download pipeline** lives in `execute_download_flow()`:
   1. `build_query_url()` + `summarize_query()` with identical args (keep them in sync — the summary feeds metadata).
   2. `client.get(url, timeout_seconds=client.download_timeout_seconds)`.
-  3. Export via `export_response` (text) or `export_binary_response` (`raw`). The `export_public_file_bytes` branch for `publicfiles_download` is currently unreachable because that dataset's only format is `raw` (known bug, xfail-tested).
+  3. Export via `export_public_file_bytes` for `publicfiles_download` (keeps the original file name; checked first because that dataset is always `raw`), else `export_binary_response` (`raw`) or `export_response` (text).
   4. `save_metadata_for_export()` writes `<output_stem>_meta.json`; failure here is non-fatal.
   Errors at each stage print a warning and return to the menu rather than exiting.
 - **URL construction** (`build_basicspacedata_url`) appends segments in a fixed order: filters → favorites → predicates → orderby → limit → distinct → metadata → emptyresult → format. Values are encoded with `quote(safe=",-.~")` so Space-Track operators (`,` OR-list, `--` range, `~~` wildcard, `null-val`) survive while `>`, `<`, spaces are escaped. `/metadata/true` is silently dropped for formats Space-Track ignores it on (csv/tle/3le/kvn); `raw` emits no `/format/` segment.
