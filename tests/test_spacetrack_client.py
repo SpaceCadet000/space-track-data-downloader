@@ -111,7 +111,6 @@ def test_prompt_rejects_empty_values(scripted_input, answers) -> None:
 def test_is_space_track_url(url, expected) -> None:
     assert sc.is_space_track_url(url) is expected
 
-@pytest.mark.xfail(reason="BUG: netloc.endswith('space-track.org') has no dot boundary, so look-alike hosts pass")
 def test_is_space_track_url_rejects_lookalike_domain() -> None:
     assert sc.is_space_track_url("https://evilspace-track.org/x") is False
 

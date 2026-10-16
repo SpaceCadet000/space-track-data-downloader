@@ -284,9 +284,10 @@ def is_space_track_url(url: str) -> bool:
     Return True if a URL belongs to www.space-track.org.
     """
     parsed = urlparse(url)
+    host = parsed.netloc.lower()
 
-    return parsed.scheme in {"http", "https"} and parsed.netloc.endswith(
-        "space-track.org"
+    return parsed.scheme in {"http", "https"} and (
+        host == "space-track.org" or host.endswith(".space-track.org")
     )
 
 def ensure_space_track_url(url: str) -> None:
