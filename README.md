@@ -14,7 +14,7 @@ DESCRIPTION:  Provides project overview, installation steps, usage instructions,
 
 # Space-Track Data Downloader
 
-An interactive Python command-line downloader and query builder for Space-Track.org data.
+An interactive Python downloader and query builder for Space-Track.org data, with a terminal wizard and a local web GUI that share the same core.
 
 This project is designed to be a general-purpose Space-Track downloader, not just a debris/TLE downloader. It lets users select Space-Track datasets, configure filters, preview the REST API query URL, download the result, and save both the data file and metadata.
 
@@ -23,6 +23,7 @@ This project is designed to be a general-purpose Space-Track downloader, not jus
 ## Features
 
 * Interactive command-line interface
+* Local web GUI (`python spacetrack_gui.py`) with a live query URL preview and download history
 * Space-Track login using environment variables or secure password prompt
 * Dataset-based workflow
 * Supports multiple Space-Track API classes
@@ -43,6 +44,9 @@ This project is designed to be a general-purpose Space-Track downloader, not jus
 Space-Track_Data_Downloader/
 │
 ├── spacetrack_downloader.py        # Main interactive CLI
+├── spacetrack_gui.py               # Local web GUI server (FastAPI, 127.0.0.1:8765)
+├── downloader_core.py              # Prompt-free core shared by the CLI and the GUI
+├── gui/static/                     # GUI page, styles, and script (no build step)
 ├── spacetrack_client.py            # Login, session, and HTTP request functions
 ├── query_builder.py                # Builds Space-Track REST URLs safely
 ├── dataset_configs.py              # Dataset menus, class mappings, filter presets
@@ -63,10 +67,12 @@ Space-Track_Data_Downloader/
 * A Space-Track.org account
 * Internet connection
 
-Python package dependency:
+Python package dependencies:
 
 ```text
 requests
+fastapi    # web GUI only
+uvicorn    # web GUI only
 ```
 
 ---
@@ -259,6 +265,40 @@ The script will:
 9. Download the response.
 10. Save the output file.
 11. Save a metadata JSON file.
+
+---
+
+## Web GUI
+
+The same downloader is available as a local web app. It runs on top of `downloader_core.py`, the core the terminal wizard uses, so both offer the same datasets, filters and query rules.
+
+### Start it
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+python spacetrack_gui.py
+```
+
+The server listens on <http://127.0.0.1:8765> and opens your browser there automatically. Stop it with `Ctrl+C` in the terminal.
+
+### Screens
+
+* **Sign in**: your Space-Track username and password.
+* **Datasets**: every dataset grouped as in the CLI menu, with its API class and default format.
+* **Filter builder**: the dataset's filters, the same questions the CLI asks, shown as switches, menus and clickable examples, plus custom predicate/value filters. Then the output format, columns, ordering, limit/offset and flags. A live preview shows the exact query URL as you edit.
+* **Download**: check the query, pick a subfolder under `downloads/` and a file name, then confirm. The result shows the record count, size, timing, file and metadata paths, and a table or text preview of the saved data.
+* **History**: every download found from its `_meta.json` sidecar under `downloads/`, with the full query and a preview of the saved file.
+
+Light and dark themes follow your system setting. The moon/sun button in the top bar switches them manually.
+
+### Security and rate limits
+
+* The server binds to `127.0.0.1` only and accepts requests only for `127.0.0.1:8765` / `localhost:8765` (this blocks DNS rebinding).
+* Your password is sent once to Space-Track at sign-in and is never stored or logged. Only the session cookie is kept, in the server's memory, until you log out or stop the server.
+* Space-Track is contacted only when you sign in, log out, or confirm a download. The query preview, dataset lists and history are built locally, so editing filters costs no API requests.
+* Downloads go through the same `SpaceTrackClient` as the CLI. It allows only `https` URLs on space-track.org and refuses responses redirected anywhere else.
+* Every state-changing request needs a per-launch token embedded in the page, and must be JSON. A strict Content-Security-Policy forbids framing and third-party scripts, and files can be saved only inside `downloads/`.
 
 ---
 

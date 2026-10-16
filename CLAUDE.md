@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Interactive CLI for downloading data from the space-track.org REST API (GP/ELSET, SATCAT, decay/TIP, public CDM, boxscore, public files). Python 3.10+, sole dependency `requests`. Flat layout: six top-level modules, no package, no build step.
+Interactive CLI and local web GUI for downloading data from the space-track.org REST API (GP/ELSET, SATCAT, decay/TIP, public CDM, boxscore, public files). Python 3.10+; `requests`, plus `fastapi`/`uvicorn` for the GUI. Flat layout: top-level modules, no package, no build step (the GUI is plain HTML/CSS/JS in `gui/static/`).
 
 ## Commands
 
@@ -14,6 +14,7 @@ Interactive CLI for downloading data from the space-track.org REST API (GP/ELSET
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python spacetrack_downloader.py          # run the interactive app (needs a Space-Track account)
+python spacetrack_gui.py                 # web GUI on http://127.0.0.1:8765 (opens the browser)
 ```
 
 Tests (pytest, fully offline; no linter config or CI):
@@ -44,24 +45,29 @@ Credentials come from env vars (`SPACETRACK_USER`/`SPACETRACK_PASS`, aliases `SP
 
 ## Architecture
 
-Dependency direction is strictly downward; only `spacetrack_downloader.py` does user interaction:
+Dependency direction is strictly downward; only `spacetrack_downloader.py` (terminal) and `spacetrack_gui.py` + `gui/static/` (browser) do user interaction:
 
 ```
-spacetrack_downloader.py  (prompts, menus, per-dataset filter wizards, orchestration)
-  ├─ query_builder.py      → dataset_configs.py
-  ├─ spacetrack_client.py  (independent; only depends on requests)
-  ├─ exporters.py          → dataset_configs.py
-  └─ metadata.py           → dataset_configs.py, exporters.ExportResult
+spacetrack_downloader.py  (prompts, menus, walks the filter specs)    spacetrack_gui.py  (FastAPI, 127.0.0.1:8765)
+  └──────────────────────────────┬─────────────────────────────────────────┘
+                         downloader_core.py  (no input()/print(): filter specs, option rules, pipeline stages, history)
+                           ├─ query_builder.py      → dataset_configs.py
+                           ├─ spacetrack_client.py  (independent; only depends on requests)
+                           ├─ exporters.py          → dataset_configs.py
+                           └─ metadata.py           → dataset_configs.py, exporters.ExportResult
 ```
+
+- **Filter wizards are declarative.** `downloader_core.dataset_filter_fields(key)` returns ordered `FilterField`s (kind, gate question, default, help); the CLI's `run_filter_wizard` asks them and the GUI renders them, and both call `build_filter_config`. Prompt order is test-pinned (scripted answers), so change specs carefully. The `configure_*` functions in the CLI remain as named routing targets.
+- **GUI security**: Host allowlist, per-launch `X-GUI-Token` on every non-GET, JSON-only bodies, CSP, `download_dir` confined to `downloads/` (`resolve_download_dir`). Only `/api/login`, `/api/logout` and `/api/download` reach Space-Track; `/api/preview` is offline. `create_app(client_factory=...)` is the test seam.
 
 - **`dataset_configs.py` is the single source of truth.** `DATASETS: dict[str, DatasetConfig]` defines each dataset's `controller` (`basicspacedata` vs `publicfiles`), `api_class`, supported/default formats, `default_orderby`, and filter hints. Preset filter tables (`OBJECT_TYPE_FILTERS`, orbit regime, RCS size, recency, countries, favorites) live here too. Adding a dataset starts here.
 - **Adding a dataset also requires routing in the downloader**: `configure_dataset_filters()` dispatches on hardcoded dataset keys (`gp`/`gp_history`, satcat family, `decay`/`tip`, `cdm_public`, `boxscore`, publicfiles); anything else falls to `configure_generic_dataset`.
-- **Download pipeline** lives in `execute_download_flow()`:
-  1. `build_query_url()` + `summarize_query()` with identical args (keep them in sync — the summary feeds metadata).
-  2. `client.get(url, timeout_seconds=client.download_timeout_seconds)`.
-  3. Export via `export_public_file_bytes` for `publicfiles_download` (keeps the original file name; checked first because that dataset is always `raw`), else `export_binary_response` (`raw`) or `export_response` (text).
-  4. `save_metadata_for_export()` writes `<output_stem>_meta.json`; failure here is non-fatal.
-  Errors at each stage print a warning and return to the menu rather than exiting.
+- **Download pipeline** stages live in `downloader_core` and are orchestrated by the CLI's `execute_download_flow()` and the GUI's `/api/download`:
+  1. `prepare_query()` calls `build_query_url()` + `summarize_query()` with identical args (the summary feeds metadata).
+  2. `fetch()` → `client.get(url, timeout_seconds=client.download_timeout_seconds)`.
+  3. `export_download()` → `export_public_file_bytes` for `publicfiles_download` (keeps the original file name; checked first because that dataset is always `raw`), else `export_binary_response` (`raw`) or `export_response` (text).
+  4. `save_download_metadata()` writes `<output_stem>_meta.json`; failure here is non-fatal.
+  Errors at each stage print a warning (CLI) or return a JSON `{error}` (GUI) rather than exiting. Monkeypatch exporter/metadata functions on `downloader_core`.
 - **URL construction** (`build_basicspacedata_url`) appends segments in a fixed order: filters → favorites → predicates → orderby → limit → distinct → metadata → emptyresult → format. Values are encoded with `quote(safe=",-.~")` so Space-Track operators (`,` OR-list, `--` range, `~~` wildcard, `null-val`) survive while `>`, `<`, spaces are escaped. `/metadata/true` is silently dropped for formats Space-Track ignores it on (csv/tle/3le/kvn); `raw` emits no `/format/` segment.
 - **`SpaceTrackClient`** wraps a cookie-authenticated `requests.Session` (login = POST `/ajaxauth/login`). `request()` refuses anything but `https` on space-track.org or a subdomain (`is_space_track_url` compares `hostname`, so ports are fine and look-alikes fail) and re-checks the final `response.url` after redirects, raises immediately on 401/403, and retries timeouts/connection errors and 408/409/425/429/5xx with linear backoff (`retry_delay_seconds * attempt`).
 - **Exporters** default to `downloads/spacetrack_{dataset}_{UTC timestamp}{ext}` and append `_1`, `_2`… instead of overwriting unless `overwrite=True`. Record counts are format-specific heuristics and may be `None`.
