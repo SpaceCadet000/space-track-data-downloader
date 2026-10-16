@@ -1515,6 +1515,10 @@ def execute_download_flow(
                 or "space_track_public_file"
             )
 
+            # The custom name is a base without extension; keep the file's own.
+            if export_options["custom_name"] and not Path(original_name).suffix:
+                original_name += Path(publicfiles_download_name or "").suffix
+
             export_result = export_public_file_bytes(
                 content=response.content,
                 original_name=original_name,

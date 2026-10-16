@@ -563,6 +563,21 @@ def test_publicfiles_download_keeps_original_filename(scripted_input, tmp_path: 
 
     assert (tmp_path / "report.zip").is_file()
 
+def test_publicfiles_download_custom_name_keeps_extension(scripted_input, tmp_path: Path) -> None:
+    client = FakeClient(ok_response(text="", content=b"PK\x03\x04"))
+    scripted_input.set("", str(tmp_path), "y", "my_report", "")
+
+    sd.execute_download_flow(
+        client=client,
+        dataset=get_dataset("publicfiles_download"),
+        filters={"name": "Data.zip"},
+        favorites=None,
+        publicfiles_download_name="Data.zip",
+        query_options=json_query_options(output_format="raw"),
+    )
+
+    assert (tmp_path / "my_report.zip").read_bytes() == b"PK\x03\x04"
+
 def test_execute_download_flow_cancelled(scripted_input, capsys) -> None:
     client = FakeClient(ok_response())
     scripted_input.set("n")
