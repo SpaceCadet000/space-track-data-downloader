@@ -22,42 +22,53 @@ import sys
 from pathlib import Path
 from typing import Any
 from dataset_configs import (
-    COUNTRY_PRESETS,
-    CREATION_DATE_RECENCY_FILTERS,
-    DATASET_GROUPS,
     DATASETS,
-    EPOCH_RECENCY_FILTERS,
-    FAVORITES_PRESETS,
-    FORMAT_DESCRIPTIONS,
-    OBJECT_TYPE_FILTERS,
-    ORBIT_REGIME_FILTERS,
-    PREDICATE_DESCRIPTIONS,
-    RCS_SIZE_FILTERS,
     DatasetConfig,
-    dataset_uses_publicfiles_controller,
-    get_common_filters,
     get_country_code,
     get_dataset,
-    get_dataset_group,
     get_default_format,
-    get_favorite_value,
-    get_supported_formats,
-    should_warn_legacy_tle,
     validate_dataset_format,
 )
-from exporters import (
-    DEFAULT_DOWNLOAD_DIR,
-    ExportResult,
-    export_binary_response,
-    export_public_file_bytes,
-    export_response,
+from downloader_core import (
+    CUSTOM_FIELD,
+    DATE_HELP,
+    FAVORITES_FIELD,
+    ORDERBY_HELP,
+    CUSTOM_FILTER_HELP,
+    FilterField,
+    build_filter_config,
+    country_field,
+    country_options,
+    creation_date_recency_options,
+    dataset_filter_fields,
+    dataset_flow,
+    dataset_group_options,
+    dataset_options_for_group,
+    dataset_warning,
+    epoch_recency_options,
+    export_download,
+    favorite_options,
+    fetch,
+    format_options_for_dataset,
+    format_warning,
+    merge_filters,
+    name_field,
+    norad_field,
+    object_type_options,
+    orbit_regime_options,
+    predicate_options,
+    prepare_query,
+    query_option_availability,
+    rcs_size_options,
+    remove_empty_filters,
+    resolve_favorites,
+    resolve_field,
+    save_download_metadata,
 )
-from metadata import save_metadata_for_export
+from exporters import DEFAULT_DOWNLOAD_DIR
 from query_builder import (
     QueryBuilderError,
-    build_query_url,
     print_query_summary,
-    summarize_query,
 )
 from spacetrack_client import (
     SpaceTrackAuthenticationError,
@@ -379,222 +390,121 @@ def prompt_multi_choice(
         print("Invalid selection. Please try again.")
 
 # =============================================================================
-# Menu option builders
+# Filter prompts
 # =============================================================================
+#
+# The questions themselves are declared in downloader_core.dataset_filter_fields;
+# these helpers only ask them. Option builders, merge_filters and
+# remove_empty_filters are re-exported from downloader_core above.
 
-def dataset_group_options() -> list[tuple[str, str]]:
+def ask_custom_filter_entries() -> dict[str, str]:
     """
-    Return dataset group menu options.
+    Ask for custom predicate/value pairs until the user stops.
     """
-    options: list[tuple[str, str]] = []
+    print(f"\n{CUSTOM_FILTER_HELP}")
 
-    for key, group in DATASET_GROUPS.items():
-        label = f"{group['label']} - {group['description']}"
-        options.append((key, label))
+    filters: dict[str, str] = {}
 
-    options.append(("advanced_custom", "Advanced custom query builder"))
-    options.append(("session_status", "Check Space-Track session status"))
+    while True:
+        predicate = prompt_text(
+            "Predicate name",
+            allow_empty=False,
+        ).upper()
 
-    return options
-
-def dataset_options_for_group(group_key: str) -> list[tuple[str, str]]:
-    """
-    Return dataset options for a selected group.
-    """
-    group = get_dataset_group(group_key)
-
-    options: list[tuple[str, str]] = []
-
-    for dataset_key in group["datasets"]:
-        dataset = get_dataset(dataset_key)
-        label = f"{dataset.label} - {dataset.description}"
-        options.append((dataset.key, label))
-
-    return options
-
-def format_options_for_dataset(dataset_key: str) -> list[tuple[str, str]]:
-    """
-    Return output format options for a dataset.
-    """
-    formats = get_supported_formats(dataset_key)
-
-    options: list[tuple[str, str]] = []
-
-    for fmt in formats:
-        description = FORMAT_DESCRIPTIONS.get(fmt, fmt.upper())
-        options.append((fmt, description))
-
-    return options
-
-def object_type_options() -> list[tuple[str, str]]:
-    """
-    Return object-type preset options.
-    """
-    return [
-        (
-            key,
-            f"{value['label']} - {value['description']}",
+        value = prompt_text(
+            f"Value for {predicate}",
+            allow_empty=False,
         )
-        for key, value in OBJECT_TYPE_FILTERS.items()
-    ]
 
-def orbit_regime_options() -> list[tuple[str, str]]:
-    """
-    Return orbit-regime preset options.
-    """
-    return [
-        (
-            key,
-            f"{value['label']} - {value['description']}",
+        filters[predicate] = value
+
+        another = prompt_yes_no(
+            "Add another custom filter?",
+            default=False,
         )
-        for key, value in ORBIT_REGIME_FILTERS.items()
-    ]
 
-def rcs_size_options() -> list[tuple[str, str]]:
-    """
-    Return RCS-size preset options.
-    """
-    return [
-        (
-            key,
-            f"{value['label']} - {value['description']}",
-        )
-        for key, value in RCS_SIZE_FILTERS.items()
-    ]
+        if not another:
+            break
 
-def epoch_recency_options() -> list[tuple[str, str]]:
-    """
-    Return epoch-recency preset options.
-    """
-    return [
-        (
-            key,
-            f"{value['label']} - {value['description']}",
-        )
-        for key, value in EPOCH_RECENCY_FILTERS.items()
-    ]
+    return filters
 
-def creation_date_recency_options() -> list[tuple[str, str]]:
+def ask_field(spec: FilterField) -> Any:
     """
-    Return creation-date-recency preset options.
-    """
-    return [
-        (
-            key,
-            f"{value['label']} - {value['description']}",
-        )
-        for key, value in CREATION_DATE_RECENCY_FILTERS.items()
-    ]
+    Ask one filter question.
 
-def country_options() -> list[tuple[str, str]]:
+    Returns:
+        The field value for build_filter_config, or None when the gate
+        question was answered "no".
     """
-    Return country preset options.
-    """
-    return [
-        (
-            key,
-            value["label"],
-        )
-        for key, value in COUNTRY_PRESETS.items()
-    ]
+    if spec.gate is not None and not prompt_yes_no(spec.gate, default=spec.gate_default):
+        return None
 
-def favorite_options() -> list[tuple[str, str]]:
-    """
-    Return favorites preset options.
-    """
-    return [
-        (
-            key,
-            value["label"],
-        )
-        for key, value in FAVORITES_PRESETS.items()
-    ]
+    if spec.kind == "flag":
+        return True
 
-# =============================================================================
-# Filter helpers
-# =============================================================================
+    if spec.kind == "custom":
+        return ask_custom_filter_entries()
 
-def merge_filters(
-    base: dict[str, str],
-    new_filters: dict[str, str],
-) -> dict[str, str]:
-    """
-    Merge filters and return a new dictionary.
+    if spec.kind in {"preset", "choice", "favorites"}:
+        return prompt_choice(spec.label, spec.choices(), default_key=spec.default)
 
-    New filters override existing filters.
-    """
-    merged = dict(base)
-    merged.update(new_filters)
-    return merged
+    if spec.kind == "country":
+        selected = prompt_choice(spec.label, spec.choices(), default_key=spec.default)
 
-def remove_empty_filters(filters: dict[str, str]) -> dict[str, str]:
+        if get_country_code(selected) == "custom":
+            custom_value = prompt_text(
+                "Enter Space-Track country/owner code",
+                allow_empty=False,
+            )
+            return {"preset": selected, "custom": custom_value}
+
+        return selected
+
+    if spec.help:
+        print(f"\n{spec.help}")
+
+    return prompt_text(spec.label, default=spec.default)
+
+def ask_preset_filter(table_name: str, title: str) -> dict[str, str]:
     """
-    Remove empty filter values.
+    Ask for one preset-table option and return its filters.
     """
-    return {
-        predicate: value
-        for predicate, value in filters.items()
-        if str(value).strip() != ""
-    }
+    spec = FilterField(table_name, "preset", title, default="all", preset_table=table_name)
+    return resolve_field(spec, ask_field(spec))
 
 def ask_object_type_filter() -> dict[str, str]:
     """
     Ask the user for an object-type preset.
     """
-    selected = prompt_choice(
-        "Object type / object population",
-        object_type_options(),
-        default_key="all_on_orbit",
+    spec = FilterField(
+        "object_type", "preset", "Object type / object population",
+        default="all_on_orbit", preset_table="object_type",
     )
-
-    return dict(OBJECT_TYPE_FILTERS[selected]["filters"])
+    return resolve_field(spec, ask_field(spec))
 
 def ask_orbit_regime_filter() -> dict[str, str]:
     """
     Ask the user for an orbit regime filter.
     """
-    selected = prompt_choice(
-        "Orbit regime filter",
-        orbit_regime_options(),
-        default_key="all",
-    )
-
-    return dict(ORBIT_REGIME_FILTERS[selected]["filters"])
+    return ask_preset_filter("orbit_regime", "Orbit regime filter")
 
 def ask_rcs_size_filter() -> dict[str, str]:
     """
     Ask the user for an RCS size filter.
     """
-    selected = prompt_choice(
-        "Radar cross-section size filter",
-        rcs_size_options(),
-        default_key="all",
-    )
-
-    return dict(RCS_SIZE_FILTERS[selected]["filters"])
+    return ask_preset_filter("rcs_size", "Radar cross-section size filter")
 
 def ask_epoch_recency_filter() -> dict[str, str]:
     """
     Ask the user for an EPOCH recency filter.
     """
-    selected = prompt_choice(
-        "EPOCH recency filter",
-        epoch_recency_options(),
-        default_key="all",
-    )
-
-    return dict(EPOCH_RECENCY_FILTERS[selected]["filters"])
+    return ask_preset_filter("epoch_recency", "EPOCH recency filter")
 
 def ask_creation_date_recency_filter() -> dict[str, str]:
     """
     Ask the user for a CREATION_DATE recency filter.
     """
-    selected = prompt_choice(
-        "CREATION_DATE recency filter",
-        creation_date_recency_options(),
-        default_key="all",
-    )
-    return dict(CREATION_DATE_RECENCY_FILTERS[selected]["filters"])
+    return ask_preset_filter("creation_date_recency", "CREATION_DATE recency filter")
 
 def ask_country_filter(predicate_name: str) -> dict[str, str]:
     """
@@ -604,94 +514,31 @@ def ask_country_filter(predicate_name: str) -> dict[str, str]:
         predicate_name:
             Predicate to use, usually COUNTRY_CODE for GP/decay or COUNTRY for SATCAT.
     """
-    selected = prompt_choice(
-        "Country / owner filter",
-        country_options(),
-        default_key="all",
-    )
-
-    value = get_country_code(selected)
-
-    if value is None:
-        return {}
-
-    if value == "custom":
-        custom_value = prompt_text(
-            "Enter Space-Track country/owner code",
-            allow_empty=False,
-        ).upper()
-        return {predicate_name: custom_value}
-
-    return {predicate_name: value}
+    spec = country_field(predicate_name)
+    return resolve_field(spec, ask_field(spec))
 
 def ask_favorites_filter() -> str | None:
     """
     Ask the user whether to apply a favorites filter.
     """
-    use_favorites = prompt_yes_no(
-        "Filter by Space-Track favorites list?",
-        default=False,
-    )
-
-    if not use_favorites:
-        return None
-
-    selected = prompt_choice(
-        "Favorites list",
-        favorite_options(),
-        default_key="geosynchronous",
-    )
-
-    return get_favorite_value(selected)
+    selected = ask_field(FAVORITES_FIELD)
+    return None if selected is None else resolve_favorites(selected)
 
 def ask_norad_filter() -> dict[str, str]:
     """
     Ask for optional NORAD_CAT_ID filter.
     """
-    use_filter = prompt_yes_no(
-        "Filter by NORAD catalog ID, comma list, or range?",
-        default=False,
-    )
-
-    if not use_filter:
-        return {}
-
-    print(
-        "\nExamples:\n"
-        "  25544\n"
-        "  25544,43013,48274\n"
-        "  25544--26000\n"
-        "  >40000\n"
-        "  <100000"
-    )
-
-    value = prompt_text("NORAD_CAT_ID value")
-
-    return {"NORAD_CAT_ID": value}
+    spec = norad_field()
+    value = ask_field(spec)
+    return {} if value is None else resolve_field(spec, value)
 
 def ask_object_name_filter(predicate_name: str) -> dict[str, str]:
     """
     Ask for optional object-name or satellite-name wildcard filter.
     """
-    use_filter = prompt_yes_no(
-        f"Filter by {predicate_name} wildcard/name?",
-        default=False,
-    )
-
-    if not use_filter:
-        return {}
-
-    print(
-        "\nExamples:\n"
-        "  ISS\n"
-        "  STARLINK~~\n"
-        "  OBJECT~~\n"
-        "  COSMOS~~"
-    )
-
-    value = prompt_text(f"{predicate_name} value")
-
-    return {predicate_name: value}
+    spec = name_field(predicate_name)
+    value = ask_field(spec)
+    return {} if value is None else resolve_field(spec, value)
 
 def ask_date_range_filter(
     predicate_name: str,
@@ -704,13 +551,7 @@ def ask_date_range_filter(
     Callers ask whether to filter by the predicate first, so this only
     prompts for the value. Pressing Enter accepts default when one is given.
     """
-    print(
-        "\nExamples:\n"
-        "  >now-7\n"
-        "  2025-01-01--2025-01-31\n"
-        "  >2025-01-01\n"
-        "  <2025-12-31"
-    )
+    print(f"\n{DATE_HELP}")
 
     value = prompt_text(f"{predicate_name} value", default=default)
 
@@ -778,13 +619,7 @@ def ask_orderby(dataset: DatasetConfig) -> str | None:
     if not use_orderby:
         return None
 
-    print(
-        "\nExamples:\n"
-        "  NORAD_CAT_ID\n"
-        "  EPOCH desc\n"
-        "  CREATED desc\n"
-        "  DECAY_EPOCH desc"
-    )
+    print(f"\n{ORDERBY_HELP}")
 
     return prompt_text("orderby value")
 
@@ -802,17 +637,9 @@ def ask_predicates(dataset_key: str) -> list[str] | None:
     if not use_predicates:
         return None
 
-    common_filters = get_common_filters(dataset_key)
+    options = predicate_options(dataset_key)
 
-    if common_filters:
-        options = [
-            (
-                predicate,
-                f"{predicate} - {PREDICATE_DESCRIPTIONS.get(predicate, 'No description available')}",
-            )
-            for predicate in common_filters
-        ]
-
+    if options:
         selected = prompt_multi_choice(
             "Select returned predicates/columns",
             options,
@@ -840,397 +667,95 @@ def ask_custom_filters() -> dict[str, str]:
     """
     Ask for advanced custom predicate/value filters.
     """
-    filters: dict[str, str] = {}
-
-    use_custom = prompt_yes_no(
-        "Add advanced custom predicate/value filters?",
-        default=False,
-    )
-
-    if not use_custom:
-        return filters
-
-    print(
-        "\nAdd custom Space-Track REST filters one at a time.\n"
-        "Examples:\n"
-        "  Predicate: NORAD_CAT_ID      Value: 25544,43013\n"
-        "  Predicate: EPOCH             Value: >now-30\n"
-        "  Predicate: OBJECT_NAME       Value: STARLINK~~\n"
-        "  Predicate: PERIOD            Value: 1430--1450\n"
-        "  Predicate: DECAY_DATE        Value: null-val\n"
-    )
-
-    while True:
-        predicate = prompt_text(
-            "Predicate name",
-            allow_empty=False,
-        ).upper()
-
-        value = prompt_text(
-            f"Value for {predicate}",
-            allow_empty=False,
-        )
-
-        filters[predicate] = value
-
-        another = prompt_yes_no(
-            "Add another custom filter?",
-            default=False,
-        )
-
-        if not another:
-            break
-
-    return filters
+    filters = ask_field(CUSTOM_FIELD)
+    return {} if filters is None else filters
 
 # =============================================================================
 # Dataset-specific configuration flows
 # =============================================================================
 
+def run_filter_wizard(
+    dataset: DatasetConfig,
+    fields: list[FilterField] | None = None,
+) -> dict[str, Any]:
+    """
+    Ask a dataset's filter questions in order and build its filter config.
+    """
+    print_header(dataset.label)
+    print(dataset.description)
+
+    warning = dataset_warning(dataset.key)
+
+    if warning:
+        print_warning(warning)
+
+    specs = dataset_filter_fields(dataset.key) if fields is None else fields
+    values: dict[str, Any] = {}
+
+    for spec in specs:
+        value = ask_field(spec)
+
+        if value is not None:
+            values[spec.id] = value
+
+    return build_filter_config(dataset.key, values, fields=specs)
+
 def configure_gp_like_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure GP or GP_HISTORY dataset options.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    if dataset.key == "gp":
-        filters = merge_filters(filters, ask_object_type_filter())
-
-    else:
-        print_warning(
-            "Historical GP queries can be very large. Use NORAD_CAT_ID and a "
-            "short EPOCH or CREATION_DATE range whenever possible."
-        )
-        filters = merge_filters(filters, ask_norad_filter())
-
-    if prompt_yes_no("Configure orbit-regime filter?", default=True):
-        filters = merge_filters(filters, ask_orbit_regime_filter())
-
-    if prompt_yes_no("Configure RCS-size filter?", default=False):
-        filters = merge_filters(filters, ask_rcs_size_filter())
-
-    if prompt_yes_no("Configure EPOCH recency filter?", default=True):
-        filters = merge_filters(filters, ask_epoch_recency_filter())
-
-    if prompt_yes_no("Configure CREATION_DATE recency filter?", default=False):
-        filters = merge_filters(filters, ask_creation_date_recency_filter())
-
-    filters = merge_filters(filters, ask_country_filter("COUNTRY_CODE"))
-
-    # gp_history already asked for NORAD_CAT_ID after its size warning.
-    if dataset.key == "gp":
-        filters = merge_filters(filters, ask_norad_filter())
-
-    filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
-
-    if prompt_yes_no("Filter by launch site SITE?", default=False):
-        site = prompt_text("SITE value, for example AFETR, TTMTR, FRGUI").upper()
-        filters["SITE"] = site
-
-    if prompt_yes_no("Filter by LAUNCH_DATE?", default=False):
-        filters = merge_filters(filters, ask_date_range_filter("LAUNCH_DATE"))
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    favorites = ask_favorites_filter()
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": favorites,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_satcat_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure SATCAT-related dataset options.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    if dataset.key == "satcat":
-        current_only = prompt_yes_no(
-            "Use only current SATCAT records?",
-            default=True,
-        )
-
-        if current_only:
-            filters["CURRENT"] = "Y"
-
-        if prompt_yes_no("Filter by on-orbit only using DECAY/null-val?", default=False):
-            filters["DECAY"] = "null-val"
-
-        if prompt_yes_no("Filter by object type?", default=False):
-            object_type = prompt_choice(
-                "SATCAT object type",
-                [
-                    ("PAYLOAD", "PAYLOAD"),
-                    ("ROCKET BODY", "ROCKET BODY"),
-                    ("DEBRIS", "DEBRIS"),
-                    ("UNKNOWN", "UNKNOWN"),
-                ],
-                default_key="PAYLOAD",
-            )
-            filters["OBJECT_TYPE"] = object_type
-
-        filters = merge_filters(filters, ask_country_filter("COUNTRY"))
-
-        if prompt_yes_no("Filter by launch date LAUNCH?", default=False):
-            filters = merge_filters(filters, ask_date_range_filter("LAUNCH"))
-
-        if prompt_yes_no("Filter by decay date DECAY?", default=False):
-            filters = merge_filters(filters, ask_date_range_filter("DECAY"))
-
-        if prompt_yes_no("Filter by launch site SITE?", default=False):
-            site = prompt_text("SITE value").upper()
-            filters["SITE"] = site
-
-        filters = merge_filters(filters, ask_norad_filter())
-        filters = merge_filters(filters, ask_object_name_filter("SATNAME"))
-
-    elif dataset.key == "satcat_debut":
-        if prompt_yes_no("Use recent DEBUT filter?", default=True):
-            filters["DEBUT"] = prompt_text(
-                "DEBUT value",
-                default=">now-1",
-            )
-
-        filters = merge_filters(filters, ask_norad_filter())
-        filters = merge_filters(filters, ask_object_name_filter("SATNAME"))
-        filters = merge_filters(filters, ask_country_filter("COUNTRY"))
-
-    elif dataset.key == "satcat_change":
-        if prompt_yes_no("Filter by CHANGE_DATE?", default=True):
-            filters = merge_filters(
-                filters,
-                ask_date_range_filter(
-                    "CHANGE_DATE",
-                    default=dataset.recommended_filters.get("CHANGE_DATE", ">now-7"),
-                ),
-            )
-
-        filters = merge_filters(filters, ask_norad_filter())
-        filters = merge_filters(filters, ask_object_name_filter("SATNAME"))
-        filters = merge_filters(filters, ask_country_filter("COUNTRY"))
-
-    elif dataset.key == "launch_site":
-        if prompt_yes_no("Filter by SITE_CODE?", default=False):
-            filters["SITE_CODE"] = prompt_text("SITE_CODE").upper()
-
-        if prompt_yes_no("Filter by LAUNCH_SITE wildcard/name?", default=False):
-            filters["LAUNCH_SITE"] = prompt_text(
-                "LAUNCH_SITE value, for example CAPE~~"
-            )
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_decay_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure decay or TIP dataset options.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    filters = merge_filters(filters, ask_norad_filter())
-
-    if dataset.key == "decay":
-        if prompt_yes_no("Filter by MSG_EPOCH?", default=False):
-            filters = merge_filters(filters, ask_date_range_filter("MSG_EPOCH"))
-
-        if prompt_yes_no("Filter by DECAY_EPOCH?", default=True):
-            filters = merge_filters(
-                filters,
-                ask_date_range_filter(
-                    "DECAY_EPOCH",
-                    default=dataset.recommended_filters.get("DECAY_EPOCH", ">now-7"),
-                ),
-            )
-
-        filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
-
-        filters = merge_filters(filters, ask_country_filter("COUNTRY_CODE"))
-
-        if prompt_yes_no("Filter by RCS_SIZE?", default=False):
-            filters = merge_filters(filters, ask_rcs_size_filter())
-
-        if prompt_yes_no("Filter by PRECEDENCE?", default=False):
-            print(
-                "\nPRECEDENCE examples:\n"
-                "  4 = 60-day decay message\n"
-                "  3 = TIP message\n"
-                "  2 = Decay message\n"
-                "  1 = SATCAT most recent decay date"
-            )
-            filters["PRECEDENCE"] = prompt_text("PRECEDENCE value")
-
-    elif dataset.key == "tip":
-        if prompt_yes_no("Filter by INSERT_EPOCH?", default=True):
-            filters = merge_filters(
-                filters,
-                ask_date_range_filter(
-                    "INSERT_EPOCH",
-                    default=dataset.recommended_filters.get("INSERT_EPOCH", ">now-7"),
-                ),
-            )
-
-        if prompt_yes_no("Filter by MSG_EPOCH?", default=False):
-            filters = merge_filters(filters, ask_date_range_filter("MSG_EPOCH"))
-
-        if prompt_yes_no("Filter by DECAY_EPOCH?", default=False):
-            filters = merge_filters(filters, ask_date_range_filter("DECAY_EPOCH"))
-
-        if prompt_yes_no("Filter high-interest TIPs only?", default=False):
-            filters["HIGH_INTEREST"] = "Y"
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_cdm_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure public CDM dataset options.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    if prompt_yes_no("Filter by CREATED date?", default=True):
-        filters = merge_filters(
-            filters,
-            ask_date_range_filter(
-                "CREATED",
-                default=dataset.recommended_filters.get("CREATED", ">now-7"),
-            ),
-        )
-
-    if prompt_yes_no("Filter by TCA date?", default=False):
-        filters = merge_filters(filters, ask_date_range_filter("TCA"))
-
-    if prompt_yes_no("Filter by SAT_1_ID?", default=False):
-        filters["SAT_1_ID"] = prompt_text("SAT_1_ID value")
-
-    if prompt_yes_no("Filter by SAT_2_ID?", default=False):
-        filters["SAT_2_ID"] = prompt_text("SAT_2_ID value")
-
-    if prompt_yes_no("Emergency-reportable only?", default=False):
-        filters["EMERGENCY_REPORTABLE"] = "Y"
-
-    if prompt_yes_no("Filter by minimum collision probability PC?", default=False):
-        filters["PC"] = prompt_text("PC value, for example >0.00001")
-
-    if prompt_yes_no("Filter by maximum MIN_RNG?", default=False):
-        filters["MIN_RNG"] = prompt_text("MIN_RNG value, for example <5")
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_boxscore_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure boxscore dataset options.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    if prompt_yes_no("Filter by country?", default=False):
-        filters = merge_filters(filters, ask_country_filter("COUNTRY"))
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_publicfiles_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Configure publicfiles endpoint options.
     """
-    filters: dict[str, str] = {}
-    publicfiles_download_name: str | None = None
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    if dataset.key == "publicfiles_download":
-        print(
-            "\nTo download a public file, first use:\n"
-            "  Public files - detailed file metadata\n"
-            "Then copy the LINK value into this prompt."
-        )
-        publicfiles_download_name = prompt_text("Public file LINK/name value")
-        filters["name"] = publicfiles_download_name
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-        "publicfiles_download_name": publicfiles_download_name,
-    }
+    return run_filter_wizard(dataset)
 
 def configure_generic_dataset(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Generic configuration fallback for datasets without a custom flow.
     """
-    filters: dict[str, str] = {}
-
-    print_header(dataset.label)
-    print(dataset.description)
-
-    custom_filters = ask_custom_filters()
-    filters = merge_filters(filters, custom_filters)
-
-    return {
-        "filters": remove_empty_filters(filters),
-        "favorites": None,
-    }
+    return run_filter_wizard(dataset, fields=[CUSTOM_FIELD])
 
 def configure_dataset_filters(dataset: DatasetConfig) -> dict[str, Any]:
     """
     Route to the correct dataset-specific configuration flow.
     """
-    if dataset.key in {"gp", "gp_history"}:
-        return configure_gp_like_dataset(dataset)
+    flows = {
+        "gp_like": configure_gp_like_dataset,
+        "satcat": configure_satcat_dataset,
+        "decay": configure_decay_dataset,
+        "cdm": configure_cdm_dataset,
+        "boxscore": configure_boxscore_dataset,
+        "publicfiles": configure_publicfiles_dataset,
+    }
 
-    if dataset.key in {"satcat", "satcat_change", "satcat_debut", "launch_site"}:
-        return configure_satcat_dataset(dataset)
-
-    if dataset.key in {"decay", "tip"}:
-        return configure_decay_dataset(dataset)
-
-    if dataset.key == "cdm_public":
-        return configure_cdm_dataset(dataset)
-
-    if dataset.key == "boxscore":
-        return configure_boxscore_dataset(dataset)
-
-    if dataset_uses_publicfiles_controller(dataset.key):
-        return configure_publicfiles_dataset(dataset)
-
-    return configure_generic_dataset(dataset)
+    return flows.get(dataset_flow(dataset.key), configure_generic_dataset)(dataset)
 
 # =============================================================================
 # Output/query configuration
@@ -1250,11 +775,10 @@ def choose_output_format(dataset_key: str) -> str:
 
     validate_dataset_format(dataset_key, selected)
 
-    if should_warn_legacy_tle(dataset_key, selected):
-        print_warning(
-            "TLE/3LE are legacy fixed-width formats. JSON, CSV, XML, or KVN "
-            "are usually better for expanded catalog identifiers."
-        )
+    warning = format_warning(dataset_key, selected)
+
+    if warning:
+        print_warning(warning)
 
     return selected
 
@@ -1264,10 +788,11 @@ def configure_query_options(dataset: DatasetConfig) -> dict[str, Any]:
     query-level options.
     """
     output_format = choose_output_format(dataset.key)
+    available = query_option_availability(dataset.key, output_format)
 
     predicates = None
 
-    if output_format not in {"tle", "3le", "raw"}:
+    if available["predicates"]:
         predicates = ask_predicates(dataset.key)
 
     orderby = None
@@ -1277,22 +802,26 @@ def configure_query_options(dataset: DatasetConfig) -> dict[str, Any]:
     show_empty = False
     distinct = False
 
-    if not dataset_uses_publicfiles_controller(dataset.key):
+    if available["orderby"]:
         orderby = ask_orderby(dataset)
+
+    if available["limit"]:
         limit = ask_limit()
         offset = ask_offset(limit)
 
-        if output_format not in {"csv", "tle", "3le", "kvn"}:
-            metadata = prompt_yes_no(
-                "Request Space-Track metadata?",
-                default=False,
-            )
+    if available["metadata"]:
+        metadata = prompt_yes_no(
+            "Request Space-Track metadata?",
+            default=False,
+        )
 
+    if available["show_empty"]:
         show_empty = prompt_yes_no(
             "Show explicit message for empty result?",
             default=True,
         )
 
+    if available["distinct"]:
         distinct = prompt_yes_no(
             "Request distinct rows only?",
             default=False,
@@ -1433,43 +962,19 @@ def execute_download_flow(
     output_format = query_options["output_format"]
 
     try:
-        url = build_query_url(
+        prepared = prepare_query(
             dataset_key=dataset.key,
             filters=filters,
-            output_format=output_format,
-            predicates=query_options.get("predicates"),
-            orderby=query_options.get("orderby"),
-            limit=query_options.get("limit"),
-            offset=query_options.get("offset"),
-            metadata=query_options.get("metadata", False),
-            show_empty=query_options.get("show_empty", False),
             favorites=favorites,
-            distinct=query_options.get("distinct", False),
             publicfiles_download_name=publicfiles_download_name,
-            use_recommended_filters=False,
-        )
-
-        query_summary = summarize_query(
-            dataset_key=dataset.key,
-            filters=filters,
-            output_format=output_format,
-            predicates=query_options.get("predicates"),
-            orderby=query_options.get("orderby"),
-            limit=query_options.get("limit"),
-            offset=query_options.get("offset"),
-            metadata=query_options.get("metadata", False),
-            show_empty=query_options.get("show_empty", False),
-            favorites=favorites,
-            distinct=query_options.get("distinct", False),
-            publicfiles_download_name=publicfiles_download_name,
-            use_recommended_filters=False,
+            query_options=query_options,
         )
 
     except QueryBuilderError as exc:
         print_warning(f"Could not build query: {exc}")
         return
 
-    print_query_summary(query_summary)
+    print_query_summary(prepared.summary)
 
     if not prompt_yes_no("Proceed with download?", default=True):
         print_info("Download cancelled.")
@@ -1483,10 +988,7 @@ def execute_download_flow(
     try:
         print_info("Sending request to Space-Track...")
 
-        response = client.get(
-            url,
-            timeout_seconds=client.download_timeout_seconds,
-        )
+        response = fetch(client, prepared.url)
 
         print_success(
             f"Request completed with HTTP {response.status_code} "
@@ -1506,61 +1008,24 @@ def execute_download_flow(
         return
 
     try:
-        # Checked before the generic raw branch: publicfiles_download is
-        # always raw, and should keep its original file name.
-        if dataset.key == "publicfiles_download":
-            original_name = (
-                export_options["custom_name"]
-                or publicfiles_download_name
-                or "space_track_public_file"
-            )
-
-            # The custom name is a base without extension; keep the file's own.
-            if export_options["custom_name"] and not Path(original_name).suffix:
-                original_name += Path(publicfiles_download_name or "").suffix
-
-            export_result = export_public_file_bytes(
-                content=response.content,
-                original_name=original_name,
-                download_dir=export_options["download_dir"],
-                overwrite=export_options["overwrite"],
-                print_preview=True,
-            )
-
-        elif output_format == "raw":
-            export_result = export_binary_response(
-                content=response.content,
-                dataset_key=dataset.key,
-                output_format="raw",
-                download_dir=export_options["download_dir"],
-                custom_name=export_options["custom_name"],
-                overwrite=export_options["overwrite"],
-                print_preview=True,
-            )
-
-        else:
-            export_result = export_response(
-                content=response.text,
-                dataset_key=dataset.key,
-                output_format=output_format,
-                download_dir=export_options["download_dir"],
-                custom_name=export_options["custom_name"],
-                overwrite=export_options["overwrite"],
-                pretty_json=export_options["pretty_json"],
-                print_preview=True,
-            )
+        export_result = export_download(
+            response=response,
+            dataset_key=dataset.key,
+            output_format=output_format,
+            publicfiles_download_name=publicfiles_download_name,
+            export_options=export_options,
+            print_preview=True,
+        )
 
     except Exception as exc:
         print_warning(f"Failed to export response: {exc}")
         return
 
     try:
-        save_metadata_for_export(
-            query_summary=query_summary,
+        save_download_metadata(
+            prepared=prepared,
             export_result=export_result,
-            response_status_code=response.status_code,
-            response_elapsed_seconds=response.elapsed_seconds,
-            response_headers=response.headers,
+            response=response,
             overwrite=export_options["overwrite"],
             print_summary=True,
         )
@@ -1569,6 +1034,7 @@ def execute_download_flow(
         print_warning(f"Downloaded data was saved, but metadata saving failed: {exc}")
 
     print_success("Done.")
+
 
 def run_dataset_flow(client: SpaceTrackClient, dataset_key: str) -> None:
     """

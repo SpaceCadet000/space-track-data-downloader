@@ -24,6 +24,7 @@ import json
 from pathlib import Path
 from typing import Any
 import pytest
+import downloader_core
 import spacetrack_downloader as sd
 from dataset_configs import (
     COUNTRY_PRESETS,
@@ -638,8 +639,8 @@ def test_execute_download_flow_export_failure_skips_metadata(monkeypatch, script
     def broken_export(**kwargs: Any) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr(sd, "export_response", broken_export)
-    monkeypatch.setattr(sd, "save_metadata_for_export", lambda **kw: metadata_calls.append(kw))
+    monkeypatch.setattr(downloader_core, "export_response", broken_export)
+    monkeypatch.setattr(downloader_core, "save_metadata_for_export", lambda **kw: metadata_calls.append(kw))
     scripted_input.set("", str(tmp_path), "", "", "")
 
     sd.execute_download_flow(
@@ -660,7 +661,7 @@ def test_execute_download_flow_metadata_failure_is_not_fatal(monkeypatch, script
     def broken_metadata(**kwargs: Any) -> None:
         raise RuntimeError("no metadata")
 
-    monkeypatch.setattr(sd, "save_metadata_for_export", broken_metadata)
+    monkeypatch.setattr(downloader_core, "save_metadata_for_export", broken_metadata)
     scripted_input.set("", str(tmp_path), "", "", "")
 
     sd.execute_download_flow(
