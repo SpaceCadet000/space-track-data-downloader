@@ -106,6 +106,8 @@ def test_prompt_rejects_empty_values(scripted_input, answers) -> None:
         ("https://example.com/x", False),
         ("ftp://www.space-track.org/x", False),
         ("https://space-track.org.evil.com/x", False),
+        ("https://space-track.org@evil.com/x", False),
+        ("https://WWW.Space-Track.org/x", True),
     ],
 )
 def test_is_space_track_url(url, expected) -> None:
@@ -114,7 +116,6 @@ def test_is_space_track_url(url, expected) -> None:
 def test_is_space_track_url_rejects_lookalike_domain() -> None:
     assert sc.is_space_track_url("https://evilspace-track.org/x") is False
 
-@pytest.mark.xfail(reason="BUG: netloc includes the port, so an explicit :443 is rejected")
 def test_is_space_track_url_accepts_explicit_port() -> None:
     assert sc.is_space_track_url("https://www.space-track.org:443/x") is True
 

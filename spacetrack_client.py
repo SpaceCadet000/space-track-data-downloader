@@ -281,10 +281,14 @@ def utc_now_iso() -> str:
 
 def is_space_track_url(url: str) -> bool:
     """
-    Return True if a URL belongs to www.space-track.org.
+    Return True if a URL belongs to space-track.org or one of its subdomains.
+
+    The hostname is compared without any port or userinfo, so
+    https://www.space-track.org:443/ is accepted and
+    https://space-track.org@evil.com/ is not.
     """
     parsed = urlparse(url)
-    host = parsed.netloc.lower()
+    host = parsed.hostname or ""
 
     return parsed.scheme in {"http", "https"} and (
         host == "space-track.org" or host.endswith(".space-track.org")
