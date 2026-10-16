@@ -920,7 +920,11 @@ def configure_gp_like_dataset(dataset: DatasetConfig) -> dict[str, Any]:
         filters = merge_filters(filters, ask_creation_date_recency_filter())
 
     filters = merge_filters(filters, ask_country_filter("COUNTRY_CODE"))
-    filters = merge_filters(filters, ask_norad_filter())
+
+    # gp_history already asked for NORAD_CAT_ID after its size warning.
+    if dataset.key == "gp":
+        filters = merge_filters(filters, ask_norad_filter())
+
     filters = merge_filters(filters, ask_object_name_filter("OBJECT_NAME"))
 
     if prompt_yes_no("Filter by launch site SITE?", default=False):

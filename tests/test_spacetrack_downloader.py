@@ -296,7 +296,6 @@ def test_configure_gp_history_all_defaults(scripted_input) -> None:
 
     assert sd.configure_dataset_filters(get_dataset("gp_history")) == {"filters": {}, "favorites": None}
 
-@pytest.mark.xfail(reason="BUG: gp_history asks the NORAD_CAT_ID question twice (lines 908 and 923)")
 def test_configure_gp_history_asks_norad_once(scripted_input) -> None:
     scripted_input.enter_for_all()
 
