@@ -33,6 +33,9 @@ DEFAULT_METADATA_SUFFIX = "_meta"
 TOOL_NAME = "Space-Track Data Downloader"
 TOOL_VERSION = "1.0.0"
 
+# Headers that carry session credentials and must never be written to disk.
+SENSITIVE_HEADER_NAMES = frozenset({"set-cookie", "cookie"})
+
 # =============================================================================
 # Exceptions
 # =============================================================================
@@ -349,6 +352,23 @@ def build_notes(
 
     return notes
 
+def sanitize_response_headers(
+    response_headers: dict[str, str] | None,
+) -> dict[str, str] | None:
+    """
+    Return a copy of response headers without session cookies.
+
+    Header names are matched case-insensitively against SENSITIVE_HEADER_NAMES.
+    """
+    if not response_headers:
+        return None
+
+    return {
+        name: value
+        for name, value in dict(response_headers).items()
+        if name.lower() not in SENSITIVE_HEADER_NAMES
+    }
+
 def create_download_metadata(
     *,
     query_summary: dict[str, Any],
@@ -449,7 +469,7 @@ def create_download_metadata(
         estimated_record_count=export_result.record_count,
         response_status_code=response_status_code,
         response_elapsed_seconds=response_elapsed_seconds,
-        response_headers=dict(response_headers) if response_headers else None,
+        response_headers=sanitize_response_headers(response_headers),
         notes=notes,
         runtime=RuntimeMetadata(),
     )

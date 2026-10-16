@@ -254,10 +254,6 @@ def test_self_test_writes_into_cwd_downloads(tmp_path: Path) -> None:
 # Sensitive headers
 # =============================================================================
 
-@pytest.mark.xfail(
-    reason="BUG: response headers are stored verbatim, so the Space-Track session "
-    "cookie (Set-Cookie: chocolatechip=...) is written to the _meta.json sidecar"
-)
 def test_metadata_file_does_not_store_set_cookie(tmp_path: Path) -> None:
     export = make_export(tmp_path)
     headers = {

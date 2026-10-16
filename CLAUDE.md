@@ -71,6 +71,6 @@ spacetrack_downloader.py  (prompts, menus, per-dataset filter wizards, orchestra
 - Every source file begins with the same ASCII-art banner header block (PROJECT NAME / FILE / PATH / AUTHOR / DATE / VERSION / DESCRIPTION); keep it on new files.
 - Style: `from __future__ import annotations`, dataclasses for data containers (`DatasetConfig`, `ExportResult` are frozen), per-module exception hierarchies (`QueryBuilderError`, `SpaceTrackClientError`, `ExporterError`, `MetadataError`), section dividers `# ===...`.
 - TLE/3LE are treated as legacy formats (warned about in the UI and in metadata notes); prefer JSON/CSV/XML/KVN.
-- Metadata sidecars store all response headers, including `Set-Cookie` (a live Space-Track session cookie). `downloads/` and `*_meta.json` are gitignored; don't move outputs outside them.
+- Metadata sidecars store the response headers minus `Set-Cookie`/`Cookie` (`metadata.SENSITIVE_HEADER_NAMES`, stripped by `sanitize_response_headers`). `downloads/` and `*_meta.json` are gitignored; don't move outputs outside them.
 - `.gitignore` also ignores `*.json`, `*.csv`, `*.xml`, `*.html`, `*.tle`, `*.kvn` repo-wide (except `example*.json` / `sample*.json`). A trailing `!tests/fixtures/**` rule re-includes test fixtures, so put fixture data there.
 - Respect Space-Track rate limits: favor one filtered query over many per-object queries; `gp_history` should always be narrowed by NORAD ID and a short date window.
