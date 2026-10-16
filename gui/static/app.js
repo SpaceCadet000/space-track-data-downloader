@@ -1165,6 +1165,116 @@ function resultPanel(data) {
 }
 
 // ============================================================================
+// History
+// ============================================================================
+
+function historyDialog(entry) {
+  const previewBox = h("div", { class: "preview-slot" }, entry.output_exists ? h("div", { class: "waiting" }, h("span", { class: "spinner", "aria-hidden": "true" }), h("span", { class: "muted" }, "Reading the saved file…")) : notice("warn", "The data file is no longer on disk."));
+  const filters = Object.entries(entry.filters || {});
+
+  const dialog = dialogShell(
+    entry.dataset_label || entry.dataset_key,
+    h(
+      "div",
+      { class: "url-row" },
+      h("pre", { class: "url-box" }, urlView(entry.query_url || "")),
+      h("button", { class: "icon-btn", type: "button", "aria-label": "Copy query URL", onclick: () => copyText(entry.query_url || "") }, icon("copy", 16)),
+    ),
+    h(
+      "dl",
+      { class: "facts" },
+      h("dt", {}, "Saved"),
+      h("dd", {}, formatTime(entry.created_utc)),
+      h("dt", {}, "Filters"),
+      h("dd", {}, filters.length ? filters.map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
+      entry.favorites ? [h("dt", {}, "Favorites"), h("dd", {}, entry.favorites)] : null,
+      h("dt", {}, "Records"),
+      h("dd", { class: "num" }, entry.estimated_record_count ?? "–"),
+      h("dt", {}, "Size"),
+      h("dd", { class: "num" }, formatBytes(entry.output_size_bytes)),
+      h("dt", {}, "Response"),
+      h("dd", { class: "num" }, entry.response_status_code ? `HTTP ${entry.response_status_code} in ${Number(entry.response_elapsed_seconds || 0).toFixed(2)} s` : "–"),
+      h("dt", {}, "File"),
+      h("dd", {}, h("code", {}, entry.output_file)),
+      h("dt", {}, "Metadata"),
+      h("dd", {}, h("code", {}, entry.meta_file)),
+    ),
+    ...(entry.notes || []).map((note) => h("p", { class: "subtle" }, note)),
+    previewBox,
+  );
+
+  dialog.classList.add("dialog-wide");
+  openDialog(dialog);
+
+  if (entry.output_exists) {
+    api(`/api/history/preview?meta_file=${encodeURIComponent(entry.meta_file)}`)
+      .then((preview) => previewBox.replaceChildren(previewBlock(preview)))
+      .catch((error) => previewBox.replaceChildren(notice("warn", error.message)));
+  }
+}
+
+async function historyView() {
+  if (!state.history) state.history = await api("/api/history");
+  const { entries, errors } = state.history;
+
+  const refresh = h(
+    "button",
+    {
+      class: "btn btn-small",
+      type: "button",
+      onclick: () => {
+        state.history = null;
+        render();
+      },
+    },
+    icon("refresh", 16),
+    "Refresh",
+  );
+
+  const row = (entry) =>
+    h(
+      "button",
+      { class: "history-row", type: "button", onclick: () => historyDialog(entry) },
+      h("span", { class: "history-main" }, h("span", { class: "history-title" }, entry.dataset_label || entry.dataset_key), h("span", { class: "subtle history-file" }, entry.output_filename || entry.output_file)),
+      h(
+        "span",
+        { class: "history-meta num" },
+        h("span", { class: "format" }, (entry.output_format || "").toUpperCase()),
+        h("span", {}, entry.estimated_record_count === null || entry.estimated_record_count === undefined ? "–" : `${entry.estimated_record_count} records`),
+        h("span", {}, formatBytes(entry.output_size_bytes)),
+        entry.output_exists ? null : h("span", { class: "meta-warn" }, "File missing"),
+      ),
+      h("span", { class: "history-time subtle" }, formatTime(entry.created_utc)),
+    );
+
+  const body = entries.length
+    ? panel(h("div", { class: "history-list" }, entries.map(row)))
+    : panel(
+        h("div", { class: "empty" }, h("h2", {}, "No downloads yet"), h("p", { class: "muted" }, "Each download writes a _meta.json file beside its data. They'll be listed here."), state.session.logged_in ? h("a", { class: "btn", href: "#/datasets" }, "Choose a dataset") : null),
+      );
+
+  return h(
+    "div",
+    { class: "history" },
+    h(
+      "header",
+      { class: "view-head history-head reveal" },
+      h("div", {}, h("h1", {}, "Download history"), h("p", {}, `Read from the metadata files under downloads/. ${entries.length} ${entries.length === 1 ? "download" : "downloads"}; nothing here contacts Space-Track.`)),
+      refresh,
+    ),
+    errors.length
+      ? h(
+          "details",
+          { class: "notice notice-warn errors reveal" },
+          h("summary", {}, `${errors.length} metadata ${errors.length === 1 ? "file" : "files"} couldn't be read`),
+          h("ul", {}, errors.map((e) => h("li", {}, e))),
+        )
+      : null,
+    h("div", { class: "reveal" }, body),
+  );
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -1173,6 +1283,7 @@ const routes = {
   datasets: { view: datasetsView },
   build: { view: builderView },
   download: { view: downloadView },
+  history: { view: historyView, public: true },
 };
 
 function parseRoute() {

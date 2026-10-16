@@ -945,6 +945,54 @@ table.data tbody tr:hover td { background: var(--tint); color: var(--ink); }
 @keyframes fade-in { from { opacity: 0; } }
 
 /* ==========================================================================
+   History
+   ========================================================================== */
+
+.history { display: grid; gap: var(--s3); }
+.history-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); max-width: none; margin-bottom: var(--s2); }
+.history-head > div { display: grid; gap: var(--s2); max-width: 62ch; }
+.history .panel-core { padding: var(--s1); }
+
+.history-list { display: grid; gap: 2px; }
+
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: 18px var(--s3);
+  border: 0;
+  border-radius: calc(var(--radius-xl) - var(--bezel) - 8px);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--base) var(--ease), transform var(--fast) var(--ease);
+}
+
+.history-row:hover { background: var(--tint); }
+.history-row:active { transform: scale(0.995); }
+
+.history-main { display: grid; gap: 2px; min-width: 0; }
+.history-title { font-weight: 600; }
+.history-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--ink-2); font-size: var(--text-sm); }
+.history-meta .format { color: var(--accent-ink); font-weight: 600; }
+.history-time { white-space: nowrap; }
+
+.empty { display: grid; gap: var(--s2); justify-items: start; padding: var(--s4); }
+
+.errors { display: block; }
+.errors summary { cursor: pointer; font-weight: 550; }
+.errors ul { margin: 10px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
+
+.dialog-wide { width: min(880px, calc(100vw - 32px)); }
+.url-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.preview-slot { display: grid; }
+
+/* ==========================================================================
    Toast
    ========================================================================== */
 
@@ -1006,6 +1054,8 @@ table.data tbody tr:hover td { background: var(--tint); color: var(--ink); }
   .builder-grid { grid-template-columns: 1fr; }
   .preview { position: static; }
   .download-grid { grid-template-columns: 1fr; }
+  .history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .history-row .history-meta { grid-column: 1 / -1; grid-row: 2; }
 }
 
 @media (max-width: 480px) {
@@ -1027,4 +1077,7 @@ table.data tbody tr:hover td { background: var(--tint); color: var(--ink); }
   .panel > .panel-core { padding: var(--s3); }
   .dialog { padding: var(--s3); }
   .stats { gap: var(--s2) var(--s4); }
+  .history-head { flex-direction: column; align-items: flex-start; }
+  .history-row { grid-template-columns: 1fr; gap: 8px; padding: var(--s2); }
+  .history-row .history-meta { grid-row: auto; }
 }
