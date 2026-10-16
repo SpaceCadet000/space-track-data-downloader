@@ -388,12 +388,578 @@ async function datasetsView() {
 }
 
 // ============================================================================
+// Filter builder
+// ============================================================================
+
+const OPTION_TOGGLES = [
+  ["show_empty", "Say so explicitly when nothing matches", "Adds /emptyresult/show."],
+  ["distinct", "Distinct rows only", "Adds /distinct/true."],
+  ["metadata", "Include Space-Track metadata", "Adds /metadata/true; ignored for CSV, TLE, 3LE and KVN."],
+];
+
+function newBuild(desc) {
+  const gates = {};
+  const values = {};
+
+  for (const field of desc.fields) {
+    if (field.gate) gates[field.id] = field.gate_default;
+    if (field.id in desc.default_values) values[field.id] = desc.default_values[field.id];
+    else if (field.default !== null) values[field.id] = field.default;
+    else values[field.id] = field.kind === "custom" ? null : "";
+  }
+
+  return {
+    gates,
+    values,
+    countryCustom: "",
+    custom: [["", ""]],
+    query: {
+      output_format: desc.default_format,
+      predicates: [],
+      orderby: "",
+      limit: "",
+      offset: "",
+      metadata: false,
+      show_empty: true,
+      distinct: false,
+    },
+    export: { download_dir: "", custom_name: "", overwrite: false, pretty_json: true },
+  };
+}
+
+function getBuild(desc) {
+  if (!state.builds.has(desc.key)) state.builds.set(desc.key, newBuild(desc));
+  return state.builds.get(desc.key);
+}
+
+function formatInfo(desc, build) {
+  return desc.formats.find((fmt) => fmt.key === build.query.output_format) || desc.formats[0];
+}
+
+function collectValues(desc, build) {
+  const values = {};
+
+  for (const field of desc.fields) {
+    if (field.gate && !build.gates[field.id]) continue;
+
+    if (field.kind === "flag") {
+      values[field.id] = true;
+    } else if (field.kind === "custom") {
+      const pairs = build.custom.filter(([p, v]) => p.trim() || v.trim());
+      if (pairs.length) values[field.id] = pairs;
+    } else if (field.kind === "country" && build.values[field.id] === "custom") {
+      values[field.id] = { preset: "custom", custom: build.countryCustom };
+    } else {
+      values[field.id] = build.values[field.id] ?? "";
+    }
+  }
+
+  return values;
+}
+
+function queryPayload(desc, build) {
+  const q = build.query;
+  const limit = String(q.limit).trim();
+
+  return {
+    dataset_key: desc.key,
+    values: collectValues(desc, build),
+    query_options: {
+      output_format: q.output_format,
+      predicates: q.predicates.length ? q.predicates : null,
+      orderby: q.orderby.trim() || null,
+      limit: limit || null,
+      offset: limit ? String(q.offset).trim() || null : null,
+      metadata: q.metadata,
+      show_empty: q.show_empty,
+      distinct: q.distinct,
+    },
+  };
+}
+
+/** Turn a field's help text into clickable examples. */
+function parseExamples(help) {
+  if (!help) return [];
+
+  return help
+    .split("\n")
+    .filter((line) => line.startsWith("  ") && !line.includes("Predicate:"))
+    .map((line) => {
+      const text = line.trim();
+      const [value, ...rest] = text.split(" = ");
+      return { value: value.trim(), title: rest.join(" = ") };
+    });
+}
+
+function urlView(url) {
+  const base = "https://www.space-track.org";
+  const code = h("code", { class: "url" });
+
+  if (url.startsWith(base)) code.append(h("span", { class: "url-base" }, base), url.slice(base.length));
+  else code.append(url);
+
+  return code;
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Copied to the clipboard.");
+  } catch {
+    toast("Could not copy; select the text instead.");
+  }
+}
+
+function fieldControl(field, build, onChange) {
+  const id = `f-${field.id}`;
+
+  if (["preset", "choice", "favorites", "country"].includes(field.kind)) {
+    const select = h(
+      "select",
+      {
+        class: "select",
+        id,
+        onchange: () => {
+          build.values[field.id] = select.value;
+          if (field.kind === "country") customBox.hidden = select.value !== "custom";
+          onChange();
+        },
+      },
+      field.options.map((opt) => h("option", { value: opt.key, selected: opt.key === build.values[field.id] }, opt.label)),
+    );
+
+    let customBox = null;
+
+    if (field.kind === "country") {
+      const customInput = h("input", {
+        class: "input",
+        id: `${id}-custom`,
+        value: build.countryCustom,
+        placeholder: "Space-Track owner code, e.g. ISRA",
+        autocapitalize: "characters",
+        oninput: () => {
+          build.countryCustom = customInput.value;
+          onChange();
+        },
+      });
+      customBox = h("div", { class: "field", hidden: build.values[field.id] !== "custom" }, h("label", { for: `${id}-custom` }, "Custom country or owner code"), customInput);
+    }
+
+    return h("div", { class: "control" }, h("label", { class: "visually-hidden", for: id }, field.label), select, customBox);
+  }
+
+  if (field.kind === "text" || field.kind === "date") {
+    const examples = parseExamples(field.help);
+    const input = h("input", {
+      class: "input",
+      id,
+      value: build.values[field.id] ?? "",
+      placeholder: examples[0]?.value || "",
+      spellcheck: "false",
+      autocapitalize: field.uppercase ? "characters" : "off",
+      oninput: () => {
+        build.values[field.id] = input.value;
+        onChange();
+      },
+    });
+
+    const chips = examples.length
+      ? h(
+          "div",
+          { class: "examples", role: "group", "aria-label": `Examples for ${field.predicate}` },
+          examples.map((ex) =>
+            h(
+              "button",
+              {
+                class: "chip",
+                type: "button",
+                title: ex.title || `Use ${ex.value}`,
+                onclick: () => {
+                  input.value = ex.value;
+                  build.values[field.id] = ex.value;
+                  onChange();
+                },
+              },
+              ex.title ? `${ex.value} · ${ex.title}` : ex.value,
+            ),
+          ),
+        )
+      : null;
+
+    const prose = field.help && !examples.length ? h("p", { class: "subtle" }, field.help) : null;
+
+    return h("div", { class: "control" }, h("label", { class: "visually-hidden", for: id }, field.label), input, chips, prose);
+  }
+
+  if (field.kind === "custom") {
+    const list = h("div", { class: "custom-list" });
+
+    const drawRows = () => {
+      list.replaceChildren(
+        ...build.custom.map((pair, index) => {
+          const predicate = h("input", {
+            class: "input",
+            value: pair[0],
+            placeholder: "Predicate, e.g. PERIOD",
+            "aria-label": `Custom filter ${index + 1} predicate`,
+            spellcheck: "false",
+            oninput: () => {
+              pair[0] = predicate.value;
+              onChange();
+            },
+          });
+          const value = h("input", {
+            class: "input",
+            value: pair[1],
+            placeholder: "Value, e.g. 1430--1450",
+            "aria-label": `Custom filter ${index + 1} value`,
+            spellcheck: "false",
+            oninput: () => {
+              pair[1] = value.value;
+              onChange();
+            },
+          });
+          const remove = h(
+            "button",
+            {
+              class: "icon-btn",
+              type: "button",
+              "aria-label": `Remove custom filter ${index + 1}`,
+              onclick: () => {
+                build.custom.splice(index, 1);
+                if (!build.custom.length) build.custom.push(["", ""]);
+                drawRows();
+                onChange();
+              },
+            },
+            icon("close", 16),
+          );
+          return h("div", { class: "custom-row" }, predicate, value, remove);
+        }),
+      );
+    };
+
+    drawRows();
+
+    return h(
+      "div",
+      { class: "control" },
+      list,
+      h(
+        "button",
+        {
+          class: "btn btn-quiet btn-small add-row",
+          type: "button",
+          onclick: () => {
+            build.custom.push(["", ""]);
+            drawRows();
+            list.lastElementChild?.querySelector("input")?.focus();
+          },
+        },
+        icon("plus", 16),
+        "Add another filter",
+      ),
+      h("p", { class: "subtle" }, "Any predicate the class supports: operators , (or), -- (range), ~~ (wildcard), < > and null-val all work."),
+    );
+  }
+
+  return null;
+}
+
+function fieldRow(field, build, onChange) {
+  const id = `f-${field.id}`;
+
+  if (!field.gate) {
+    return h("div", { class: "filter-row" }, h("label", { class: "filter-label", for: id }, field.label), fieldControl(field, build, onChange));
+  }
+
+  const toggleId = `g-${field.id}`;
+  const body = field.kind === "flag" ? null : h("div", { class: "filter-body", hidden: !build.gates[field.id] }, fieldControl(field, build, onChange));
+  const toggle = h("input", {
+    class: "switch",
+    type: "checkbox",
+    role: "switch",
+    id: toggleId,
+    checked: build.gates[field.id],
+    onchange: () => {
+      build.gates[field.id] = toggle.checked;
+      if (body) body.hidden = !toggle.checked;
+      row.classList.toggle("on", toggle.checked);
+      onChange();
+      if (toggle.checked) body?.querySelector("input, select")?.focus();
+    },
+  });
+
+  const row = h(
+    "div",
+    { class: `filter-row gated${build.gates[field.id] ? " on" : ""}` },
+    h("label", { class: "check-row", for: toggleId }, h("span", { class: "filter-label" }, field.gate.replace(/\?$/, "")), toggle),
+    body,
+  );
+
+  return row;
+}
+
+function optionsSection(desc, build, onChange) {
+  const box = h("div", { class: "options" });
+
+  const draw = () => {
+    const fmt = formatInfo(desc, build);
+    const avail = fmt.options;
+    const q = build.query;
+
+    const formats = h(
+      "div",
+      { class: "segmented", role: "radiogroup", "aria-label": "Output format" },
+      desc.formats.map((f) =>
+        h(
+          "button",
+          {
+            type: "button",
+            role: "radio",
+            "aria-checked": f.key === q.output_format ? "true" : "false",
+            title: f.label,
+            onclick: () => {
+              q.output_format = f.key;
+              draw();
+              onChange();
+            },
+          },
+          f.key.toUpperCase(),
+        ),
+      ),
+    );
+
+    const parts = [h("div", { class: "filter-row" }, h("span", { class: "filter-label" }, "Format"), formats, h("p", { class: "subtle" }, fmt.label))];
+
+    if (fmt.warning) parts.push(notice("warn", fmt.warning));
+
+    if (avail.predicates && desc.predicate_options.length) {
+      const chips = desc.predicate_options.map((opt) => {
+        const on = q.predicates.includes(opt.key);
+        return h(
+          "button",
+          {
+            class: "chip toggle",
+            type: "button",
+            "aria-pressed": on ? "true" : "false",
+            title: opt.label,
+            onclick: (event) => {
+              const i = q.predicates.indexOf(opt.key);
+              if (i >= 0) q.predicates.splice(i, 1);
+              else q.predicates.push(opt.key);
+              event.currentTarget.setAttribute("aria-pressed", i >= 0 ? "false" : "true");
+              onChange();
+            },
+          },
+          opt.key,
+        );
+      });
+
+      parts.push(
+        h(
+          "div",
+          { class: "filter-row" },
+          h("span", { class: "filter-label" }, "Columns to return"),
+          h("div", { class: "examples", role: "group", "aria-label": "Columns to return" }, chips),
+          h("p", { class: "subtle" }, "Leave all off to get every column."),
+        ),
+      );
+    }
+
+    if (avail.orderby || avail.limit) {
+      const orderby = h("input", {
+        class: "input",
+        id: "q-orderby",
+        value: q.orderby,
+        placeholder: desc.default_orderby ? `Default: ${desc.default_orderby}` : "e.g. EPOCH desc",
+        spellcheck: "false",
+        oninput: () => {
+          q.orderby = orderby.value;
+          onChange();
+        },
+      });
+      const offset = h("input", {
+        class: "input num",
+        id: "q-offset",
+        type: "number",
+        min: "0",
+        inputmode: "numeric",
+        value: q.offset,
+        disabled: !String(q.limit).trim(),
+        placeholder: "0",
+        oninput: () => {
+          q.offset = offset.value;
+          onChange();
+        },
+      });
+      const limit = h("input", {
+        class: "input num",
+        id: "q-limit",
+        type: "number",
+        min: "1",
+        inputmode: "numeric",
+        value: q.limit,
+        placeholder: "No limit",
+        oninput: () => {
+          q.limit = limit.value;
+          offset.disabled = !limit.value.trim();
+          onChange();
+        },
+      });
+
+      parts.push(
+        h(
+          "div",
+          { class: "option-grid" },
+          h("div", { class: "field wide" }, h("label", { for: "q-orderby" }, "Order by"), orderby),
+          h("div", { class: "field" }, h("label", { for: "q-limit" }, "Limit"), limit),
+          h("div", { class: "field" }, h("label", { for: "q-offset" }, "Offset"), offset),
+        ),
+      );
+    }
+
+    const toggles = OPTION_TOGGLES.filter(([key]) => avail[key]).map(([key, label, hint]) => {
+      const input = h("input", {
+        class: "switch",
+        type: "checkbox",
+        role: "switch",
+        id: `q-${key}`,
+        checked: q[key],
+        onchange: () => {
+          q[key] = input.checked;
+          onChange();
+        },
+      });
+      return h("label", { class: "check-row toggle-row", for: `q-${key}` }, h("span", {}, h("span", { class: "filter-label" }, label), h("span", { class: "subtle block" }, hint)), input);
+    });
+
+    if (toggles.length) parts.push(h("div", { class: "toggle-list" }, toggles));
+
+    box.replaceChildren(...parts);
+  };
+
+  draw();
+  return box;
+}
+
+function previewPanel(desc, build) {
+  const urlBox = h("pre", { class: "url-box", tabindex: "0", "aria-label": "Query URL" }, h("code", { class: "url" }, "Building…"));
+  const facts = h("dl", { class: "facts" });
+  const messages = h("div", { class: "messages", "aria-live": "polite" });
+  const copy = h("button", { class: "icon-btn", type: "button", "aria-label": "Copy query URL", onclick: () => lastUrl && copyText(lastUrl) }, icon("copy", 16));
+  const next = primaryButton("Review download", { onclick: () => (location.hash = `#/download/${encodeURIComponent(desc.key)}`) });
+  let lastUrl = "";
+  let seq = 0;
+  let timer;
+
+  const fact = (term, value) => [h("dt", {}, term), h("dd", { class: "num" }, value)];
+
+  const update = async () => {
+    const mine = ++seq;
+    const body = queryPayload(desc, build);
+
+    try {
+      const data = await api("/api/preview", { method: "POST", body });
+      if (mine !== seq) return;
+
+      lastUrl = data.url;
+      urlBox.replaceChildren(urlView(data.url));
+      const filterCount = Object.keys(data.filters).length;
+      facts.replaceChildren(
+        ...fact("Format", data.query_options.output_format.toUpperCase()),
+        ...fact("Filters", filterCount ? String(filterCount) : "None"),
+        ...fact("Limit", data.query_options.limit ?? "None"),
+        ...fact("Order", data.summary.orderby || "Default"),
+        ...(data.favorites ? fact("Favorites", data.favorites) : []),
+      );
+      messages.replaceChildren(...data.warnings.map((w) => notice("warn", w)));
+      next.disabled = false;
+      urlBox.classList.remove("stale");
+    } catch (error) {
+      if (mine !== seq) return;
+      // 400s are "this query isn't complete yet" guidance, not failures.
+      messages.replaceChildren(notice(error.status === 400 ? "warn" : "error", error.message));
+      next.disabled = true;
+      urlBox.classList.add("stale");
+    }
+  };
+
+  const schedule = () => {
+    clearTimeout(timer);
+    urlBox.classList.add("stale");
+    timer = setTimeout(update, 220);
+  };
+
+  const el = h(
+    "aside",
+    { class: "preview", "aria-label": "Query preview" },
+    panel(
+      h("div", { class: "preview-head" }, h("h2", {}, "Query preview"), copy),
+      urlBox,
+      facts,
+      messages,
+      next,
+      h("p", { class: "subtle" }, "Built on this machine. Nothing has been sent to Space-Track."),
+    ),
+  );
+
+  update();
+  return { el, schedule };
+}
+
+async function builderView(key) {
+  const desc = await loadDataset(key);
+  const build = getBuild(desc);
+  const preview = previewPanel(desc, build);
+  const onChange = preview.schedule;
+
+  const filters = desc.fields.length
+    ? panel(h("h2", {}, "Filters"), h("div", { class: "filter-list" }, desc.fields.map((field) => fieldRow(field, build, onChange))))
+    : panel(h("h2", {}, "Filters"), h("p", { class: "muted" }, "This dataset takes no filters."));
+
+  const reset = h(
+    "button",
+    {
+      class: "btn btn-quiet btn-small",
+      type: "button",
+      onclick: () => {
+        state.builds.delete(desc.key);
+        render();
+      },
+    },
+    icon("refresh", 16),
+    "Reset to defaults",
+  );
+
+  return h(
+    "div",
+    { class: "builder" },
+    h(
+      "header",
+      { class: "view-head reveal" },
+      h("a", { class: "back", href: "#/datasets" }, icon("back", 16), "All datasets"),
+      h("h1", {}, desc.label),
+      h("p", {}, desc.description),
+      desc.warning ? notice("warn", desc.warning) : null,
+    ),
+    h(
+      "div",
+      { class: "builder-grid" },
+      h("div", { class: "builder-main reveal" }, filters, panel(h("h2", {}, "Output"), optionsSection(desc, build, onChange)), h("div", { class: "builder-foot" }, reset)),
+      h("div", { class: "reveal" }, preview.el),
+    ),
+  );
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
 const routes = {
   login: { view: loginView, public: true },
   datasets: { view: datasetsView },
+  build: { view: builderView },
 };
 
 function parseRoute() {
