@@ -140,10 +140,6 @@ def test_count_xml_records_cdm_and_empty() -> None:
     assert ex.count_xml_records("   ") == 0
     assert ex.count_xml_records("<xml><item/></xml>") is None
 
-@pytest.mark.xfail(
-    reason="BUG: count_xml_records matches '<object' inside <OBJECT_NAME>/<OBJECT_ID>, "
-    "so each OMM record is counted twice"
-)
 def test_count_xml_records_omm(fixture_text) -> None:
     assert ex.count_xml_records(fixture_text("omm_sample.xml")) == 2
 

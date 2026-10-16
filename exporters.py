@@ -422,15 +422,20 @@ def count_xml_records(text: str) -> int | None:
     lower = stripped.lower()
 
     possible_record_tags = (
-        "<omm",
-        "<cdm",
-        "<record",
-        "<result",
-        "<satellite",
-        "<object",
+        "omm",
+        "cdm",
+        "record",
+        "result",
+        "satellite",
+        "object",
     )
 
-    counts = [lower.count(tag) for tag in possible_record_tags]
+    # Match whole opening tags only, so <object> does not also count
+    # <OBJECT_NAME> or <OBJECT_ID>.
+    counts = [
+        len(re.findall(rf"<{tag}(?=[\s/>])", lower))
+        for tag in possible_record_tags
+    ]
     best = max(counts) if counts else 0
 
     if best > 0:
