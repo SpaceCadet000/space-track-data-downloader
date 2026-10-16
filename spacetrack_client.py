@@ -281,7 +281,9 @@ def utc_now_iso() -> str:
 
 def is_space_track_url(url: str) -> bool:
     """
-    Return True if a URL belongs to space-track.org or one of its subdomains.
+    Return True if a URL is an https URL on space-track.org or a subdomain.
+
+    Plain http is refused so the session cookie is never sent in cleartext.
 
     The hostname is compared without any port or userinfo, so
     https://www.space-track.org:443/ is accepted and
@@ -290,7 +292,7 @@ def is_space_track_url(url: str) -> bool:
     parsed = urlparse(url)
     host = parsed.hostname or ""
 
-    return parsed.scheme in {"http", "https"} and (
+    return parsed.scheme == "https" and (
         host == "space-track.org" or host.endswith(".space-track.org")
     )
 

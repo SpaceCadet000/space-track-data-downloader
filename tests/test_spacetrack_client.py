@@ -102,7 +102,7 @@ def test_prompt_rejects_empty_values(scripted_input, answers) -> None:
     [
         ("https://www.space-track.org/x", True),
         ("https://space-track.org/x", True),
-        ("http://www.space-track.org/x", True),
+        ("http://www.space-track.org/x", False),
         ("https://example.com/x", False),
         ("ftp://www.space-track.org/x", False),
         ("https://space-track.org.evil.com/x", False),
@@ -118,6 +118,10 @@ def test_is_space_track_url_rejects_lookalike_domain() -> None:
 
 def test_is_space_track_url_accepts_explicit_port() -> None:
     assert sc.is_space_track_url("https://www.space-track.org:443/x") is True
+
+def test_ensure_space_track_url_rejects_plain_http() -> None:
+    with pytest.raises(SpaceTrackConfigurationError, match="Refusing"):
+        sc.ensure_space_track_url("http://www.space-track.org/ajaxauth/login")
 
 def test_ensure_space_track_url_raises() -> None:
     with pytest.raises(SpaceTrackConfigurationError, match="Refusing"):

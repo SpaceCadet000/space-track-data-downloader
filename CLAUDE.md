@@ -63,7 +63,7 @@ spacetrack_downloader.py  (prompts, menus, per-dataset filter wizards, orchestra
   4. `save_metadata_for_export()` writes `<output_stem>_meta.json`; failure here is non-fatal.
   Errors at each stage print a warning and return to the menu rather than exiting.
 - **URL construction** (`build_basicspacedata_url`) appends segments in a fixed order: filters → favorites → predicates → orderby → limit → distinct → metadata → emptyresult → format. Values are encoded with `quote(safe=",-.~")` so Space-Track operators (`,` OR-list, `--` range, `~~` wildcard, `null-val`) survive while `>`, `<`, spaces are escaped. `/metadata/true` is silently dropped for formats Space-Track ignores it on (csv/tle/3le/kvn); `raw` emits no `/format/` segment.
-- **`SpaceTrackClient`** wraps a cookie-authenticated `requests.Session` (login = POST `/ajaxauth/login`). `request()` refuses non-space-track.org hosts, raises immediately on 401/403, and retries timeouts/connection errors and 408/409/425/429/5xx with linear backoff (`retry_delay_seconds * attempt`).
+- **`SpaceTrackClient`** wraps a cookie-authenticated `requests.Session` (login = POST `/ajaxauth/login`). `request()` refuses anything but `https` on space-track.org or a subdomain (`is_space_track_url` compares `hostname`, so ports are fine and look-alikes fail), raises immediately on 401/403, and retries timeouts/connection errors and 408/409/425/429/5xx with linear backoff (`retry_delay_seconds * attempt`).
 - **Exporters** default to `downloads/spacetrack_{dataset}_{UTC timestamp}{ext}` and append `_1`, `_2`… instead of overwriting unless `overwrite=True`. Record counts are format-specific heuristics and may be `None`.
 
 ## Conventions and gotchas
