@@ -619,6 +619,62 @@ main {
 .login-form .btn { width: 100%; justify-content: space-between; padding-left: 24px; }
 
 /* ==========================================================================
+   Dataset picker
+   ========================================================================== */
+
+.datasets { display: grid; gap: var(--s6); }
+.datasets > .view-head { margin-bottom: 0; }
+
+.group {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: start;
+}
+
+.group-head { display: grid; gap: var(--s1); position: sticky; top: 104px; padding-top: var(--s3); }
+
+.group .panel-core { padding: var(--s1); }
+
+.dataset-list { display: grid; gap: 4px; }
+
+.dataset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3);
+  border-radius: calc(var(--radius-xl) - var(--bezel) - 8px);
+  color: var(--ink);
+  transition: background-color var(--base) var(--ease), transform var(--base) var(--ease);
+}
+
+.dataset-row:hover { background: var(--tint); text-decoration: none; }
+.dataset-row:active { transform: scale(0.995); }
+
+.dataset-text { display: grid; gap: 6px; flex: 1; min-width: 0; }
+
+.dataset-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 4px; }
+.meta-warn { color: var(--warn-ink); }
+
+.row-orb {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--field);
+  color: var(--ink-2);
+  transition: transform var(--base) var(--ease), background-color var(--base) var(--ease), color var(--base) var(--ease);
+}
+
+.dataset-row:hover .row-orb {
+  background: var(--accent);
+  color: var(--on-accent);
+  transform: translateX(3px);
+}
+
+/* ==========================================================================
    Toast
    ========================================================================== */
 
@@ -675,6 +731,12 @@ main {
 
 @media (max-width: 860px) {
   .login { grid-template-columns: 1fr; gap: var(--s5); min-height: 0; }
+  .group { grid-template-columns: 1fr; gap: var(--s2); }
+  .group-head { position: static; padding-top: 0; }
+}
+
+@media (max-width: 480px) {
+  .nav .wordmark { display: none; }
 }
 
 @media (max-width: 640px) {
@@ -682,5 +744,7 @@ main {
   .nav { gap: var(--s1); padding-left: 16px; }
   .nav .wordmark { font-size: var(--text-sm); }
   .session { display: none; }
+  .dataset-row { padding: var(--s2); gap: var(--s2); }
+  .row-orb { width: 34px; height: 34px; }
   .panel > .panel-core { padding: var(--s3); }
 }

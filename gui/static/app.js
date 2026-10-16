@@ -326,12 +326,74 @@ function loginView() {
 }
 
 // ============================================================================
+// Dataset picker
+// ============================================================================
+
+async function loadCatalog() {
+  if (!state.catalog) state.catalog = (await api("/api/datasets")).groups;
+  return state.catalog;
+}
+
+async function loadDataset(key) {
+  if (!state.datasets.has(key)) state.datasets.set(key, await api(`/api/datasets/${encodeURIComponent(key)}`));
+  return state.datasets.get(key);
+}
+
+function controllerLabel(controller) {
+  return controller === "publicfiles" ? "Public files" : "Basic space data";
+}
+
+async function datasetsView() {
+  const groups = await loadCatalog();
+
+  const row = (dataset) =>
+    h(
+      "a",
+      { class: "dataset-row", href: `#/build/${encodeURIComponent(dataset.key)}` },
+      h(
+        "span",
+        { class: "dataset-text" },
+        h("h3", {}, dataset.label),
+        h("span", { class: "muted" }, dataset.description),
+        h(
+          "span",
+          { class: "dataset-meta subtle" },
+          h("span", {}, `class/${dataset.api_class}`),
+          h("span", {}, controllerLabel(dataset.controller)),
+          h("span", {}, `${dataset.default_format.toUpperCase()} by default`),
+          dataset.warning ? h("span", { class: "meta-warn" }, "Large: narrow it down") : null,
+        ),
+      ),
+      h("span", { class: "row-orb" }, icon("arrow", 16)),
+    );
+
+  return h(
+    "div",
+    { class: "datasets" },
+    h(
+      "header",
+      { class: "view-head reveal" },
+      h("h1", {}, "What do you want to download?"),
+      h("p", {}, "Pick a dataset to build its query. The URL is previewed as you go; Space-Track is only contacted when you confirm the download."),
+    ),
+    groups.map((group) =>
+      h(
+        "section",
+        { class: "group reveal", "aria-labelledby": `group-${group.key}` },
+        h("div", { class: "group-head" }, h("h2", { id: `group-${group.key}` }, group.label), h("p", { class: "muted" }, group.description)),
+        panel(h("div", { class: "dataset-list" }, group.datasets.map(row))),
+      ),
+    ),
+  );
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
 const routes = {
   login: { view: loginView, public: true },
-  datasets: { view: () => panel(h("h2", {}, "Signed in"), h("p", { class: "muted" }, "The dataset picker arrives in the next stage.")) },
+  datasets: { view: datasetsView },
 };
 
 function parseRoute() {
