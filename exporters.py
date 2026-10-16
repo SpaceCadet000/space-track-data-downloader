@@ -580,9 +580,9 @@ def write_text_file(
     Write text to a file.
     """
     output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(text, encoding=encoding)
     except OSError as exc:
         raise FileWriteError(f"Failed to write text file {output_path}: {exc}") from exc
@@ -597,9 +597,9 @@ def write_binary_file(
     Write bytes to a file.
     """
     output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(content)
     except OSError as exc:
         raise FileWriteError(

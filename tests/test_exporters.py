@@ -222,11 +222,6 @@ def test_write_binary_file_to_directory_raises_file_write_error(tmp_path: Path) 
     with pytest.raises(FileWriteError):
         ex.write_binary_file(tmp_path, b"x")
 
-@pytest.mark.xfail(
-    raises=AssertionError,
-    reason="BUG: mkdir runs outside the try block, so a parent that is a file "
-    "raises a raw OSError instead of FileWriteError",
-)
 @pytest.mark.parametrize("writer, payload", [(ex.write_text_file, "x"), (ex.write_binary_file, b"x")])
 def test_write_with_unusable_parent_raises_file_write_error(tmp_path: Path, writer, payload) -> None:
     blocker = tmp_path / "blocker"
