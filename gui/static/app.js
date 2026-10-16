@@ -953,6 +953,218 @@ async function builderView(key) {
 }
 
 // ============================================================================
+// Shared result pieces
+// ============================================================================
+
+function openDialog(dialog) {
+  document.body.append(dialog);
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+}
+
+function closeDialog(dialog) {
+  if (typeof dialog.close === "function") dialog.close();
+  else {
+    dialog.removeAttribute("open");
+    dialog.dispatchEvent(new Event("close"));
+  }
+}
+
+function dialogShell(title, ...body) {
+  const dialog = h("dialog", { class: "dialog", "aria-labelledby": "dialog-title" });
+  const close = h("button", { class: "icon-btn", type: "button", "aria-label": "Close", onclick: () => closeDialog(dialog) }, icon("close", 18));
+  dialog.append(h("div", { class: "dialog-head" }, h("h2", { id: "dialog-title" }, title), close), ...body);
+  return dialog;
+}
+
+function previewBlock(preview) {
+  if (!preview) return null;
+
+  if (preview.table && preview.table.columns.length) {
+    const { columns, rows, total } = preview.table;
+    const note = total > rows.length ? `First ${rows.length} of ${total} rows.` : `${total} ${total === 1 ? "row" : "rows"}.`;
+
+    return h(
+      "div",
+      { class: "preview-data" },
+      h(
+        "div",
+        { class: "table-wrap", tabindex: "0", role: "region", "aria-label": "Data preview" },
+        h("table", { class: "data" }, h("thead", {}, h("tr", {}, columns.map((c) => h("th", { scope: "col" }, c)))), h("tbody", {}, rows.map((r) => h("tr", {}, r.map((cell) => h("td", {}, cell)))))),
+      ),
+      h("p", { class: "subtle" }, note),
+    );
+  }
+
+  return h("div", { class: "preview-data" }, h("pre", { class: "text-preview", tabindex: "0" }, preview.text));
+}
+
+function stat(label, value) {
+  return h("div", { class: "stat" }, h("span", { class: "stat-value num" }, value), h("span", { class: "stat-label" }, label));
+}
+
+// ============================================================================
+// Download
+// ============================================================================
+
+async function downloadView(key) {
+  const desc = await loadDataset(key);
+  const build = getBuild(desc);
+  const payload = queryPayload(desc, build);
+  let prepared;
+
+  try {
+    prepared = await api("/api/preview", { method: "POST", body: payload });
+  } catch (error) {
+    if (error.status !== 400) throw error;
+
+    return h(
+      "div",
+      { class: "download" },
+      h("header", { class: "view-head" }, h("a", { class: "back", href: `#/build/${encodeURIComponent(key)}` }, icon("back", 16), "Back to filters"), h("h1", {}, "This query isn't ready yet")),
+      panel(notice("warn", error.message)),
+    );
+  }
+
+  const ex = build.export;
+  const isJson = prepared.query_options.output_format === "json";
+
+  const dir = h("input", { class: "input", id: "x-dir", value: ex.download_dir, placeholder: "optional/subfolder", spellcheck: "false", oninput: () => (ex.download_dir = dir.value) });
+  const name = h("input", {
+    class: "input",
+    id: "x-name",
+    value: ex.custom_name,
+    placeholder: key === "publicfiles_download" ? "Keep the original file name" : `Automatic: spacetrack_${key}_<UTC time>`,
+    spellcheck: "false",
+    oninput: () => (ex.custom_name = name.value),
+  });
+  const switchRow = (id, label, hint, prop) => {
+    const input = h("input", { class: "switch", type: "checkbox", role: "switch", id, checked: ex[prop], onchange: () => (ex[prop] = input.checked) });
+    return h("label", { class: "check-row toggle-row", for: id }, h("span", {}, h("span", { class: "filter-label" }, label), h("span", { class: "subtle block" }, hint)), input);
+  };
+
+  const result = h("div", { class: "result", "aria-live": "polite" });
+  const go = primaryButton("Download from Space-Track", {}, "download");
+
+  const run = async () => {
+    setBusy(go, true);
+    result.replaceChildren(
+      panel(h("div", { class: "waiting" }, h("span", { class: "spinner", "aria-hidden": "true" }), h("div", {}, h("h2", {}, "Waiting for Space-Track"), h("p", { class: "muted" }, "Large queries can take a few minutes. Keep this tab open.")))),
+    );
+
+    try {
+      const data = await api("/api/download", {
+        method: "POST",
+        body: { ...payload, export: { download_dir: ex.download_dir.trim() || null, custom_name: ex.custom_name.trim() || null, overwrite: ex.overwrite, pretty_json: ex.pretty_json } },
+      });
+      state.history = null;
+      result.replaceChildren(resultPanel(data));
+      result.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      if (error.status === 401 && !state.session.logged_in) {
+        sessionExpired();
+        return;
+      }
+
+      if (error.status === 401) state.session = await api("/api/session").catch(() => state.session);
+      result.replaceChildren(panel(h("h2", {}, "The download didn't complete"), notice("error", error.message)));
+    } finally {
+      setBusy(go, false);
+    }
+  };
+
+  go.addEventListener("click", () => {
+    const confirm = primaryButton("Send request", {}, "download");
+    const dialog = dialogShell(
+      "Send this request to Space-Track?",
+      h("pre", { class: "url-box" }, urlView(prepared.url)),
+      h("p", { class: "muted" }, "This is one request against your account's limits (about 30 a minute and 300 an hour). Prefer one well-filtered query to many small ones."),
+      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => closeDialog(dialog) }, "Cancel"), confirm),
+    );
+    confirm.addEventListener("click", () => {
+      closeDialog(dialog);
+      run();
+    });
+    openDialog(dialog);
+    confirm.focus();
+  });
+
+  return h(
+    "div",
+    { class: "download" },
+    h(
+      "header",
+      { class: "view-head reveal" },
+      h("a", { class: "back", href: `#/build/${encodeURIComponent(key)}` }, icon("back", 16), "Back to filters"),
+      h("h1", {}, `Download ${desc.label}`),
+      h("p", {}, "Check the query, choose where to save it, then send it. A metadata file is written beside the data."),
+    ),
+    h(
+      "div",
+      { class: "download-grid" },
+      h(
+        "div",
+        { class: "reveal" },
+        panel(
+          h("h2", {}, "Query"),
+          h("pre", { class: "url-box" }, urlView(prepared.url)),
+          h(
+            "dl",
+            { class: "facts" },
+            h("dt", {}, "Dataset"),
+            h("dd", {}, `${desc.label} (class/${desc.api_class})`),
+            h("dt", {}, "Format"),
+            h("dd", {}, prepared.query_options.output_format.toUpperCase()),
+            h("dt", {}, "Filters"),
+            h("dd", {}, Object.keys(prepared.filters).length ? Object.entries(prepared.filters).map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
+            h("dt", {}, "Limit"),
+            h("dd", { class: "num" }, prepared.query_options.limit ?? "None"),
+          ),
+          ...prepared.warnings.map((w) => notice("warn", w)),
+        ),
+      ),
+      h(
+        "div",
+        { class: "reveal" },
+        panel(
+          h("h2", {}, "Save to"),
+          h("div", { class: "field" }, h("label", { for: "x-dir" }, "Folder"), h("div", { class: "prefixed" }, h("span", { class: "prefix" }, "downloads/"), dir)),
+          h("div", { class: "field" }, h("label", { for: "x-name" }, "File name"), name, h("p", { class: "subtle" }, "Without an extension; it's added for you.")),
+          h(
+            "div",
+            { class: "toggle-list" },
+            switchRow("x-overwrite", "Overwrite a file with the same name", "Otherwise _1, _2 … is appended.", "overwrite"),
+            isJson ? switchRow("x-pretty", "Pretty-print JSON", "Indented for reading; turn off for smaller files.", "pretty_json") : null,
+          ),
+          state.session.logged_in ? go : notice("warn", "Sign in to download."),
+        ),
+      ),
+    ),
+    result,
+  );
+}
+
+function resultPanel(data) {
+  const file = data.file;
+
+  return panel(
+    h("div", { class: "result-head" }, h("h2", {}, "Saved"), h("span", { class: "ok" }, `HTTP ${data.status_code}`)),
+    h(
+      "div",
+      { class: "stats" },
+      stat("records", file.record_count ?? "–"),
+      stat("on disk", formatBytes(file.size_bytes)),
+      stat("seconds", data.elapsed_seconds.toFixed(2)),
+    ),
+    h("dl", { class: "facts" }, h("dt", {}, "File"), h("dd", {}, h("code", {}, file.path)), h("dt", {}, "Metadata"), h("dd", {}, data.metadata_file ? h("code", {}, data.metadata_file) : "Not saved")),
+    data.metadata_error ? notice("warn", data.metadata_error) : null,
+    previewBlock(data.preview),
+    h("div", { class: "result-actions" }, h("a", { class: "btn", href: "#/datasets" }, "Build another query"), h("a", { class: "btn btn-quiet", href: "#/history" }, "Open history")),
+  );
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -960,6 +1172,7 @@ const routes = {
   login: { view: loginView, public: true },
   datasets: { view: datasetsView },
   build: { view: builderView },
+  download: { view: downloadView },
 };
 
 function parseRoute() {
