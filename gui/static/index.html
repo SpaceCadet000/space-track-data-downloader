@@ -1,0 +1,60 @@
+<!doctype html>
+<!--
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT NAME: Space-Track Data Downloader
+FILE:         index.html
+PATH:         space-track-data-downloader/gui/static/index.html
+AUTHOR:       Sooraj Suresh
+DATE:         October 2026
+VERSION:      1.1.0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DESCRIPTION:  Single-page shell for the local web GUI: wallpaper, glass sidebar,
+              toolbar and content area. The server replaces the gui-token
+              placeholder with a per-launch token on every load.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="gui-token" content="__GUI_TOKEN__">
+  <meta name="color-scheme" content="light dark">
+  <title>Space-Track Downloader</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <div class="wallpaper" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <aside class="sidebar glass" id="sidebar" aria-label="Sidebar">
+    <div class="sidebar-head">
+      <span class="app-glyph" aria-hidden="true"></span>
+      <span class="app-name">Space-Track</span>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav" aria-label="Main">
+      <span class="sidebar-pill" id="sidebar-pill" aria-hidden="true"></span>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="session" id="session-label"></span>
+      <button class="btn btn-small btn-plain" id="logout" type="button">Log out</button>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch colour theme"></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+  <div class="content">
+    <header class="toolbar" id="toolbar">
+      <button class="icon-btn sidebar-toggle" id="sidebar-toggle" type="button" aria-label="Show sidebar" aria-controls="sidebar" aria-expanded="false"></button>
+      <span class="toolbar-lead" id="toolbar-lead"></span>
+      <h1 class="page-title" id="page-title"></h1>
+      <div class="toolbar-actions" id="toolbar-actions"></div>
+    </header>
+
+    <main id="app" tabindex="-1">
+      <noscript><p class="noscript">This app needs JavaScript. The terminal version is <code>python spacetrack_downloader.py</code>.</p></noscript>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

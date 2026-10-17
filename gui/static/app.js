@@ -1,16 +1,16 @@
 /*
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROJECT NAME: Space-Track Data Downloader
 FILE:         app.js
 PATH:         space-track-data-downloader/gui/static/app.js
 AUTHOR:       Sooraj Suresh
 DATE:         October 2026
-VERSION:      1.0.0
+VERSION:      1.1.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DESCRIPTION:  Single-page client for the local web GUI: API helper, hash router,
-              theme toggle, and the screens. Only the login form and the
-              confirmed download dialog cause requests to Space-Track; every
-              other call stays on this machine.
+              sidebar and toolbar chrome, theme toggle, and the screens. Only
+              the login form and the confirmed download dialog cause requests
+              to Space-Track; every other call stays on this machine.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 */
 
@@ -92,23 +92,20 @@ function h(tag, attrs = {}, ...children) {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-/** Thin line icons drawn inline (1.5px strokes). */
+/** Thin line icons drawn inline. */
 const ICONS = {
-  arrow: "M5 12h14M13 6l6 6-6 6",
-  lock: "M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z",
-  chip: "M8 8h8v8H8zM12 3v3M12 18v3M3 12h3M18 12h3",
-  pulse: "M3 12h4l2-6 4 12 2-6h6",
   copy: "M9 9h10v10H9zM5 15V5h10",
   close: "M6 6l12 12M18 6 6 18",
   plus: "M12 5v14M5 12h14",
-  back: "M19 12H5M11 18l-6-6 6-6",
-  refresh: "M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6",
-  download: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  chevronRight: "M9 6l6 6-6 6",
+  chevronLeft: "M15 6l-6 6 6 6",
+  updown: "M8 10l4-4 4 4M8 14l4 4 4-4",
+  sidebar: "M4 5h16v14H4zM9 5v14",
   sun: "M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z",
   moon: "M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z",
 };
 
-function icon(name, size = 18) {
+function icon(name, size = 16) {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", size);
@@ -118,19 +115,45 @@ function icon(name, size = 18) {
   path.setAttribute("d", ICONS[name]);
   path.setAttribute("fill", "none");
   path.setAttribute("stroke", "currentColor");
-  path.setAttribute("stroke-width", "1.5");
+  path.setAttribute("stroke-width", "1.75");
   path.setAttribute("stroke-linecap", "round");
   path.setAttribute("stroke-linejoin", "round");
   svg.append(path);
   return svg;
 }
 
-function primaryButton(label, attrs = {}, iconName = "arrow") {
-  return h("button", { class: "btn btn-primary", type: "button", ...attrs }, h("span", {}, label), h("span", { class: "btn-orb" }, icon(iconName, 16)));
+function primaryButton(label, attrs = {}) {
+  return h("button", { class: "btn btn-primary", type: "button", ...attrs }, label);
 }
 
-function panel(...children) {
-  return h("section", { class: "panel" }, h("div", { class: "panel-core" }, ...children));
+/** A grouped inset list: optional heading, solid rounded body, optional footnote. */
+function group(title, body, ...footer) {
+  return h(
+    "section",
+    { class: "group" },
+    title ? h("h2", { class: "group-title" }, title) : null,
+    h("div", { class: "group-body" }, body),
+    footer.flat().filter(Boolean).length ? h("div", { class: "group-foot" }, footer) : null,
+  );
+}
+
+/** A settings row: label on the left, control on the right. */
+function row(label, control, { forId, title, extra = "" } = {}) {
+  return h(
+    "div",
+    { class: `row ${extra}`.trim() },
+    label === null ? null : h(forId ? "label" : "span", { class: "row-label", for: forId, title }, label),
+    h("div", { class: "row-control" }, control),
+  );
+}
+
+function valueRow(label, value) {
+  return h("div", { class: "row" }, h("span", { class: "row-label" }, label), h("span", { class: "row-value" }, value));
+}
+
+function switchRow(id, label, checked, onchange, { title, extra = "" } = {}) {
+  const input = h("input", { class: "switch", type: "checkbox", role: "switch", id, checked, onchange: () => onchange(input.checked) });
+  return { input, el: h("label", { class: `row row-switch ${extra}`.trim(), for: id, title }, h("span", { class: "row-label" }, label), input) };
 }
 
 function notice(kind, text) {
@@ -173,6 +196,60 @@ function formatTime(iso) {
 }
 
 // ============================================================================
+// Display names (presentation only; the API labels stay the source of truth)
+// ============================================================================
+
+const SHORT_NAMES = {
+  gp: "Latest GP",
+  gp_history: "GP history",
+  satcat: "SATCAT",
+  satcat_change: "SATCAT changes",
+  satcat_debut: "SATCAT debuts",
+  launch_site: "Launch sites",
+  decay: "Decay",
+  tip: "TIP messages",
+  cdm_public: "Public CDMs",
+  boxscore: "Box score",
+  publicfiles_dirs: "Directories",
+  publicfiles_files: "Files",
+  publicfiles_loadpublicdata: "File details",
+  publicfiles_download: "Download a file",
+};
+
+const GROUP_NAMES = {
+  object_elset: "Orbital elements",
+  catalog: "Catalog",
+  decay_reentry: "Decay & reentry",
+  conjunctions: "Conjunctions",
+  summary: "Summary",
+  publicfiles: "Public files",
+};
+
+const FIELD_NAMES = {
+  "Object type / object population": "Object type",
+  "Country / owner filter": "Country / owner",
+  "Radar cross-section size filter": "RCS size",
+  "Advanced custom predicate/value filters": "Custom filters",
+  "Use only current SATCAT records?": "Current records only",
+  "Filter by on-orbit only using DECAY/null-val?": "On orbit only",
+  "Filter high-interest TIPs only?": "High interest only",
+  "Public file LINK/name value": "File LINK / name",
+};
+
+const shortName = (dataset) => SHORT_NAMES[dataset.key] || dataset.label;
+
+function fieldName(field) {
+  if (FIELD_NAMES[field.label]) return FIELD_NAMES[field.label];
+  return field.label.split(", for example")[0].replace(/\?$/, "").replace(/\s+(value|filter)$/i, "").trim();
+}
+
+/** "PC value, for example >0.00001" → ">0.00001". */
+function labelExample(field) {
+  const match = /for example (.+)$/.exec(field.label);
+  return match ? match[1] : "";
+}
+
+// ============================================================================
 // Theme
 // ============================================================================
 
@@ -189,7 +266,7 @@ function storedTheme() {
 function currentTheme() {
   const explicit = document.documentElement.dataset.theme;
   if (explicit) return explicit;
-  return matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function applyTheme(theme) {
@@ -198,6 +275,7 @@ function applyTheme(theme) {
   const next = currentTheme() === "dark" ? "light" : "dark";
   button.replaceChildren(icon(next === "light" ? "sun" : "moon"));
   button.setAttribute("aria-label", `Switch to ${next} theme`);
+  button.title = `Switch to ${next} theme`;
 }
 
 document.getElementById("theme-toggle").addEventListener("click", () => {
@@ -213,24 +291,113 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
 });
 
 // ============================================================================
-// Session chrome
+// Sidebar and toolbar
 // ============================================================================
 
-function renderChrome(route) {
-  const topbar = document.getElementById("topbar");
-  const loggedIn = state.session.logged_in;
-  topbar.hidden = false;
+const sidebarNav = document.getElementById("sidebar-nav");
+const sidebarPill = document.getElementById("sidebar-pill");
+let sidebarMode = null;
 
-  document.querySelector('[data-nav="datasets"]').hidden = !loggedIn;
+function navItem(key, href, label, title) {
+  return h("a", { class: "nav-item", href, title: title || null, dataset: { navKey: key } }, label);
+}
+
+function navSection(heading, items) {
+  return h("div", { class: "nav-section" }, heading ? h("div", { class: "nav-heading" }, heading) : null, items);
+}
+
+async function buildSidebar() {
+  const mode = state.session.logged_in ? "in" : "out";
+  if (sidebarMode === mode) return;
+
+  const sections = [];
+
+  if (mode === "in") {
+    sections.push(navSection(null, [navItem("datasets", "#/datasets", "All datasets")]));
+
+    try {
+      for (const g of await loadCatalog()) {
+        sections.push(navSection(GROUP_NAMES[g.key] || g.label, g.datasets.map((d) => navItem(d.key, `#/build/${encodeURIComponent(d.key)}`, shortName(d), d.label))));
+      }
+    } catch {
+      /* The overview page shows the error; the sidebar keeps working without groups. */
+    }
+
+    sections.push(navSection("Library", [navItem("history", "#/history", "History")]));
+  } else {
+    sections.push(navSection(null, [navItem("login", "#/login", "Sign in"), navItem("history", "#/history", "History")]));
+  }
+
+  sidebarNav.replaceChildren(sidebarPill, ...sections);
+  sidebarPill.classList.remove("visible");
+  sidebarMode = mode;
+}
+
+/** Slide the selection pill to the item for `key`, or fade it out. */
+function moveSidebarPill(key) {
+  let active = null;
+
+  for (const item of sidebarNav.querySelectorAll("[data-nav-key]")) {
+    const on = item.dataset.navKey === key;
+    item.classList.toggle("active", on);
+    if (on) {
+      item.setAttribute("aria-current", "page");
+      active = item;
+    } else {
+      item.removeAttribute("aria-current");
+    }
+  }
+
+  if (!active) {
+    sidebarPill.classList.remove("visible");
+    return;
+  }
+
+  // Appear in place the first time instead of sliding from the top.
+  const appearing = !sidebarPill.classList.contains("visible");
+  if (appearing) sidebarPill.classList.add("no-slide");
+  sidebarPill.style.height = `${active.offsetHeight}px`;
+  sidebarPill.style.transform = `translateY(${active.offsetTop}px)`;
+
+  if (appearing) {
+    void sidebarPill.offsetHeight;
+    sidebarPill.classList.remove("no-slide");
+  }
+
+  sidebarPill.classList.add("visible");
+  active.scrollIntoView?.({ block: "nearest" });
+}
+
+function setSidebarOpen(open) {
+  document.body.classList.toggle("sidebar-open", open);
+  document.getElementById("sidebar-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+document.getElementById("sidebar-toggle").append(icon("sidebar", 18));
+document.getElementById("sidebar-toggle").addEventListener("click", () => setSidebarOpen(!document.body.classList.contains("sidebar-open")));
+document.getElementById("scrim").addEventListener("click", () => setSidebarOpen(false));
+
+const toolbar = document.getElementById("toolbar");
+const updateToolbar = () => toolbar.classList.toggle("scrolled", window.scrollY > 2);
+window.addEventListener("scroll", updateToolbar, { passive: true });
+
+async function renderChrome() {
+  const loggedIn = state.session.logged_in;
   document.getElementById("logout").hidden = !loggedIn;
   const label = document.getElementById("session-label");
   label.hidden = !loggedIn;
   label.textContent = loggedIn ? state.session.identity : "";
+  label.title = loggedIn ? state.session.identity : "";
+  await buildSidebar();
+}
 
-  for (const link of document.querySelectorAll("[data-nav]")) {
-    if (link.dataset.nav === route) link.setAttribute("aria-current", "page");
-    else link.removeAttribute("aria-current");
-  }
+/** Put a view's title and actions in the toolbar and its body in the page. */
+function showPage(page) {
+  document.getElementById("page-title").textContent = page.title || "";
+  document.title = page.title ? `${page.title} · Space-Track Downloader` : "Space-Track Downloader";
+  document.getElementById("toolbar-lead").replaceChildren(page.back ? h("a", { class: "icon-btn back-btn", href: page.back.href, "aria-label": page.back.label, title: page.back.label }, icon("chevronLeft", 18)) : "");
+  document.getElementById("toolbar-actions").replaceChildren(...(page.actions || []).filter(Boolean));
+  app.replaceChildren(h("div", { class: `page page-enter ${page.className || ""}`.trim() }, page.body));
 }
 
 document.getElementById("logout").addEventListener("click", async () => {
@@ -254,10 +421,10 @@ function sessionExpired() {
 // ============================================================================
 
 function loginView() {
-  const username = h("input", { class: "input", id: "username", name: "username", autocomplete: "username", required: true, spellcheck: "false" });
-  const password = h("input", { class: "input", id: "password", name: "password", type: "password", autocomplete: "current-password", required: true });
-  const error = h("div", { "aria-live": "assertive" });
-  const submit = primaryButton("Sign in to Space-Track", { type: "submit" });
+  const username = h("input", { class: "input input-bare", id: "username", name: "username", autocomplete: "username", required: true, spellcheck: "false", placeholder: "Required" });
+  const password = h("input", { class: "input input-bare", id: "password", name: "password", type: "password", autocomplete: "current-password", required: true, placeholder: "Required" });
+  const error = h("div", { class: "login-error", "aria-live": "assertive" });
+  const submit = primaryButton("Sign In", { type: "submit", class: "btn btn-primary btn-wide" });
 
   const form = h(
     "form",
@@ -292,37 +459,27 @@ function loginView() {
         }
       },
     },
-    h("h2", {}, "Sign in"),
-    h("div", { class: "field" }, h("label", { for: "username" }, "Username or email"), username),
-    h("div", { class: "field" }, h("label", { for: "password" }, "Password"), password),
+    h("div", { class: "group-body" }, row("Username", username, { forId: "username" }), row("Password", password, { forId: "password" })),
     error,
     submit,
-    h("p", { class: "subtle" }, "No account yet? Register for free at ", h("a", { href: "https://www.space-track.org/auth/createAccount", target: "_blank", rel: "noopener noreferrer" }, "space-track.org"), "."),
   );
 
-  const fact = (iconName, title, text) => h("li", {}, icon(iconName, 20), h("span", {}, h("strong", {}, title), " ", text));
-
-  const view = h(
+  const body = h(
     "div",
     { class: "login" },
     h(
       "div",
-      { class: "login-copy reveal" },
-      h("h1", {}, "Orbital data, one careful query at a time"),
-      h("p", {}, "Build Space-Track queries for element sets, the satellite catalogue, decay and conjunction data, and download them with a metadata record beside each file."),
-      h(
-        "ul",
-        { class: "login-facts" },
-        fact("lock", "Your password is never stored.", "It goes once to space-track.org; only the session cookie stays, in this server's memory, until you log out or stop it."),
-        fact("pulse", "Nothing is sent until you click download.", "Query previews are built on this machine, so you stay well inside Space-Track's rate limits."),
-        fact("chip", "Local only.", "The app listens on 127.0.0.1 and saves everything under downloads/."),
-      ),
+      { class: "login-card" },
+      h("span", { class: "app-glyph app-glyph-large", "aria-hidden": "true" }),
+      h("h2", {}, "Sign in to Space-Track"),
+      h("p", { class: "muted" }, "Your password is sent only to space-track.org."),
+      form,
+      h("p", { class: "subtle" }, "No account? ", h("a", { href: "https://www.space-track.org/auth/createAccount", target: "_blank", rel: "noopener noreferrer" }, "Register for free")),
     ),
-    h("div", { class: "reveal" }, panel(form)),
   );
 
   queueMicrotask(() => username.focus());
-  return view;
+  return { title: "", body };
 }
 
 // ============================================================================
@@ -339,52 +496,22 @@ async function loadDataset(key) {
   return state.datasets.get(key);
 }
 
-function controllerLabel(controller) {
-  return controller === "publicfiles" ? "Public files" : "Basic space data";
-}
-
 async function datasetsView() {
   const groups = await loadCatalog();
 
-  const row = (dataset) =>
+  const listRow = (dataset) =>
     h(
       "a",
-      { class: "dataset-row", href: `#/build/${encodeURIComponent(dataset.key)}` },
-      h(
-        "span",
-        { class: "dataset-text" },
-        h("h3", {}, dataset.label),
-        h("span", { class: "muted" }, dataset.description),
-        h(
-          "span",
-          { class: "dataset-meta subtle" },
-          h("span", {}, `class/${dataset.api_class}`),
-          h("span", {}, controllerLabel(dataset.controller)),
-          h("span", {}, `${dataset.default_format.toUpperCase()} by default`),
-          dataset.warning ? h("span", { class: "meta-warn" }, "Large: narrow it down") : null,
-        ),
-      ),
-      h("span", { class: "row-orb" }, icon("arrow", 16)),
+      { class: "list-row", href: `#/build/${encodeURIComponent(dataset.key)}` },
+      h("span", { class: "row-text" }, h("span", { class: "row-title" }, shortName(dataset)), h("span", { class: "row-detail" }, dataset.description)),
+      dataset.warning ? h("span", { class: "tag tag-warn", title: dataset.warning }, "Large") : null,
+      h("span", { class: "chevron" }, icon("chevronRight", 14)),
     );
 
-  return h(
-    "div",
-    { class: "datasets" },
-    h(
-      "header",
-      { class: "view-head reveal" },
-      h("h1", {}, "What do you want to download?"),
-      h("p", {}, "Pick a dataset to build its query. The URL is previewed as you go; Space-Track is only contacted when you confirm the download."),
-    ),
-    groups.map((group) =>
-      h(
-        "section",
-        { class: "group reveal", "aria-labelledby": `group-${group.key}` },
-        h("div", { class: "group-head" }, h("h2", { id: `group-${group.key}` }, group.label), h("p", { class: "muted" }, group.description)),
-        panel(h("div", { class: "dataset-list" }, group.datasets.map(row))),
-      ),
-    ),
-  );
+  return {
+    title: "Datasets",
+    body: groups.map((g) => group(GROUP_NAMES[g.key] || g.label, g.datasets.map(listRow))),
+  };
 }
 
 // ============================================================================
@@ -392,9 +519,9 @@ async function datasetsView() {
 // ============================================================================
 
 const OPTION_TOGGLES = [
-  ["show_empty", "Say so explicitly when nothing matches", "Adds /emptyresult/show."],
+  ["show_empty", "Show empty result", "Adds /emptyresult/show."],
   ["distinct", "Distinct rows only", "Adds /distinct/true."],
-  ["metadata", "Include Space-Track metadata", "Adds /metadata/true; ignored for CSV, TLE, 3LE and KVN."],
+  ["metadata", "Include metadata", "Adds /metadata/true; ignored for CSV, TLE, 3LE and KVN."],
 ];
 
 function newBuild(desc) {
@@ -477,7 +604,7 @@ function queryPayload(desc, build) {
   };
 }
 
-/** Turn a field's help text into clickable examples. */
+/** Turn a field's help text into example values for a datalist. */
 function parseExamples(help) {
   if (!help) return [];
 
@@ -510,89 +637,82 @@ async function copyText(text) {
   }
 }
 
-function fieldControl(field, build, onChange) {
+/**
+ * The rows that hold a field's control. `label` is the left-hand label, or
+ * null for an indented sub-row under a switch (the control then spans the row).
+ */
+function controlRows(field, build, onChange, label) {
   const id = `f-${field.id}`;
+  const extra = label ? "" : "row-sub row-full";
+  const name = fieldName(field);
 
   if (["preset", "choice", "favorites", "country"].includes(field.kind)) {
+    let customRow = null;
+
     const select = h(
       "select",
       {
         class: "select",
         id,
+        "aria-label": label ? null : name,
         onchange: () => {
           build.values[field.id] = select.value;
-          if (field.kind === "country") customBox.hidden = select.value !== "custom";
+          if (customRow) customRow.hidden = select.value !== "custom";
           onChange();
         },
       },
-      field.options.map((opt) => h("option", { value: opt.key, selected: opt.key === build.values[field.id] }, opt.label)),
+      field.options.map((opt) => h("option", { value: opt.key, selected: opt.key === build.values[field.id], title: opt.label }, opt.label.split(" - ")[0])),
     );
 
-    let customBox = null;
+    const rows = [row(label, select, { forId: id, extra })];
 
     if (field.kind === "country") {
       const customInput = h("input", {
         class: "input",
         id: `${id}-custom`,
         value: build.countryCustom,
-        placeholder: "Space-Track owner code, e.g. ISRA",
+        placeholder: "Owner code, e.g. ISRA",
         autocapitalize: "characters",
+        spellcheck: "false",
         oninput: () => {
           build.countryCustom = customInput.value;
           onChange();
         },
       });
-      customBox = h("div", { class: "field", hidden: build.values[field.id] !== "custom" }, h("label", { for: `${id}-custom` }, "Custom country or owner code"), customInput);
+      customRow = row("Custom code", customInput, { forId: `${id}-custom`, extra: "row-sub" });
+      customRow.hidden = build.values[field.id] !== "custom";
+      rows.push(customRow);
     }
 
-    return h("div", { class: "control" }, h("label", { class: "visually-hidden", for: id }, field.label), select, customBox);
+    return rows;
   }
 
   if (field.kind === "text" || field.kind === "date") {
     const examples = parseExamples(field.help);
+    const listId = examples.length ? `${id}-examples` : null;
     const input = h("input", {
       class: "input",
       id,
+      list: listId,
       value: build.values[field.id] ?? "",
-      placeholder: examples[0]?.value || "",
+      placeholder: examples[0]?.value || labelExample(field),
+      title: field.help && !examples.length ? field.help : null,
+      "aria-label": label ? null : name,
       spellcheck: "false",
+      autocomplete: "off",
       autocapitalize: field.uppercase ? "characters" : "off",
       oninput: () => {
         build.values[field.id] = input.value;
         onChange();
       },
     });
+    const datalist = listId ? h("datalist", { id: listId }, examples.map((ex) => h("option", { value: ex.value, label: ex.title || null }))) : null;
 
-    const chips = examples.length
-      ? h(
-          "div",
-          { class: "examples", role: "group", "aria-label": `Examples for ${field.predicate}` },
-          examples.map((ex) =>
-            h(
-              "button",
-              {
-                class: "chip",
-                type: "button",
-                title: ex.title || `Use ${ex.value}`,
-                onclick: () => {
-                  input.value = ex.value;
-                  build.values[field.id] = ex.value;
-                  onChange();
-                },
-              },
-              ex.title ? `${ex.value} · ${ex.title}` : ex.value,
-            ),
-          ),
-        )
-      : null;
-
-    const prose = field.help && !examples.length ? h("p", { class: "subtle" }, field.help) : null;
-
-    return h("div", { class: "control" }, h("label", { class: "visually-hidden", for: id }, field.label), input, chips, prose);
+    return [row(label, [input, datalist], { forId: id, extra })];
   }
 
   if (field.kind === "custom") {
-    const list = h("div", { class: "custom-list" });
+    const list = h("div", { class: "row-stack" });
 
     const drawRows = () => {
       list.replaceChildren(
@@ -622,7 +742,7 @@ function fieldControl(field, build, onChange) {
           const remove = h(
             "button",
             {
-              class: "icon-btn",
+              class: "icon-btn icon-btn-small",
               type: "button",
               "aria-label": `Remove custom filter ${index + 1}`,
               onclick: () => {
@@ -632,81 +752,108 @@ function fieldControl(field, build, onChange) {
                 onChange();
               },
             },
-            icon("close", 16),
+            icon("close", 14),
           );
-          return h("div", { class: "custom-row" }, predicate, value, remove);
+          return h("div", { class: "row row-sub row-custom" }, predicate, value, remove);
         }),
       );
     };
 
     drawRows();
 
-    return h(
-      "div",
-      { class: "control" },
-      list,
-      h(
-        "button",
-        {
-          class: "btn btn-quiet btn-small add-row",
-          type: "button",
-          onclick: () => {
-            build.custom.push(["", ""]);
-            drawRows();
-            list.lastElementChild?.querySelector("input")?.focus();
-          },
+    const add = h(
+      "button",
+      {
+        class: "btn btn-small btn-plain",
+        type: "button",
+        title: "Operators: , (or)  -- (range)  ~~ (wildcard)  < >  null-val",
+        onclick: () => {
+          build.custom.push(["", ""]);
+          drawRows();
+          list.lastElementChild?.querySelector("input")?.focus();
         },
-        icon("plus", 16),
-        "Add another filter",
-      ),
-      h("p", { class: "subtle" }, "Any predicate the class supports: operators , (or), -- (range), ~~ (wildcard), < > and null-val all work."),
+      },
+      icon("plus", 14),
+      "Add filter",
     );
+
+    return [list, h("div", { class: "row row-sub row-add" }, add)];
   }
 
-  return null;
+  return [];
 }
 
-function fieldRow(field, build, onChange) {
-  const id = `f-${field.id}`;
+function fieldRows(field, build, onChange) {
+  if (!field.gate) return controlRows(field, build, onChange, fieldName(field));
 
-  if (!field.gate) {
-    return h("div", { class: "filter-row" }, h("label", { class: "filter-label", for: id }, field.label), fieldControl(field, build, onChange));
-  }
-
-  const toggleId = `g-${field.id}`;
-  const body = field.kind === "flag" ? null : h("div", { class: "filter-body", hidden: !build.gates[field.id] }, fieldControl(field, build, onChange));
-  const toggle = h("input", {
-    class: "switch",
-    type: "checkbox",
-    role: "switch",
-    id: toggleId,
-    checked: build.gates[field.id],
-    onchange: () => {
-      build.gates[field.id] = toggle.checked;
-      if (body) body.hidden = !toggle.checked;
-      row.classList.toggle("on", toggle.checked);
+  const sub = field.kind === "flag" ? null : h("div", { class: "row-stack", hidden: !build.gates[field.id] }, controlRows(field, build, onChange, null));
+  const toggle = switchRow(
+    `g-${field.id}`,
+    fieldName(field),
+    build.gates[field.id],
+    (checked) => {
+      build.gates[field.id] = checked;
+      if (sub) sub.hidden = !checked;
       onChange();
-      if (toggle.checked) body?.querySelector("input, select")?.focus();
+      if (checked) sub?.querySelector("input, select")?.focus();
     },
-  });
-
-  const row = h(
-    "div",
-    { class: `filter-row gated${build.gates[field.id] ? " on" : ""}` },
-    h("label", { class: "check-row", for: toggleId }, h("span", { class: "filter-label" }, field.gate.replace(/\?$/, "")), toggle),
-    body,
+    { title: field.gate },
   );
 
-  return row;
+  return [toggle.el, sub];
 }
 
-function optionsSection(desc, build, onChange) {
-  const box = h("div", { class: "options" });
+let popoverCount = 0;
+
+/** A "Columns" button that opens a glass popover with a checkbox per predicate. */
+function columnsPicker(desc, q, onChange) {
+  const id = `columns-pop-${++popoverCount}`;
+  const button = h("button", { class: "btn btn-small popup-btn", type: "button", popovertarget: id, "aria-haspopup": "true" });
+
+  const label = () => {
+    button.replaceChildren(h("span", {}, q.predicates.length ? `${q.predicates.length} selected` : "All columns"), icon("updown", 12));
+  };
+
+  const pop = h(
+    "div",
+    { class: "popover glass", id, popover: "auto", role: "group", "aria-label": "Columns to return" },
+    desc.predicate_options.map((opt) => {
+      const box = h("input", {
+        type: "checkbox",
+        checked: q.predicates.includes(opt.key),
+        onchange: () => {
+          const i = q.predicates.indexOf(opt.key);
+          if (i >= 0) q.predicates.splice(i, 1);
+          else q.predicates.push(opt.key);
+          label();
+          onChange();
+        },
+      });
+      return h("label", { class: "pop-item", title: opt.label }, box, h("span", {}, opt.key));
+    }),
+  );
+
+  pop.addEventListener("beforetoggle", (event) => {
+    if (event.newState !== "open") return;
+    const rect = button.getBoundingClientRect();
+    const width = 260;
+    pop.style.left = `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`;
+    pop.style.top = `${rect.bottom + 6}px`;
+    pop.style.maxHeight = `${Math.max(160, window.innerHeight - rect.bottom - 24)}px`;
+  });
+
+  label();
+  return [button, pop];
+}
+
+function outputGroup(desc, build, onChange) {
+  const box = h("div");
 
   const draw = () => {
     const fmt = formatInfo(desc, build);
     const avail = fmt.options;
     const q = build.query;
+    const rows = [];
 
     const formats = h(
       "div",
@@ -730,41 +877,10 @@ function optionsSection(desc, build, onChange) {
       ),
     );
 
-    const parts = [h("div", { class: "filter-row" }, h("span", { class: "filter-label" }, "Format"), formats, h("p", { class: "subtle" }, fmt.label))];
-
-    if (fmt.warning) parts.push(notice("warn", fmt.warning));
+    rows.push(row("Format", formats, { extra: "row-wide" }));
 
     if (avail.predicates && desc.predicate_options.length) {
-      const chips = desc.predicate_options.map((opt) => {
-        const on = q.predicates.includes(opt.key);
-        return h(
-          "button",
-          {
-            class: "chip toggle",
-            type: "button",
-            "aria-pressed": on ? "true" : "false",
-            title: opt.label,
-            onclick: (event) => {
-              const i = q.predicates.indexOf(opt.key);
-              if (i >= 0) q.predicates.splice(i, 1);
-              else q.predicates.push(opt.key);
-              event.currentTarget.setAttribute("aria-pressed", i >= 0 ? "false" : "true");
-              onChange();
-            },
-          },
-          opt.key,
-        );
-      });
-
-      parts.push(
-        h(
-          "div",
-          { class: "filter-row" },
-          h("span", { class: "filter-label" }, "Columns to return"),
-          h("div", { class: "examples", role: "group", "aria-label": "Columns to return" }, chips),
-          h("p", { class: "subtle" }, "Leave all off to get every column."),
-        ),
-      );
+      rows.push(row("Columns", columnsPicker(desc, q, onChange)));
     }
 
     if (avail.orderby || avail.limit) {
@@ -772,7 +888,7 @@ function optionsSection(desc, build, onChange) {
         class: "input",
         id: "q-orderby",
         value: q.orderby,
-        placeholder: desc.default_orderby ? `Default: ${desc.default_orderby}` : "e.g. EPOCH desc",
+        placeholder: desc.default_orderby || "e.g. EPOCH desc",
         spellcheck: "false",
         oninput: () => {
           q.orderby = orderby.value;
@@ -800,7 +916,7 @@ function optionsSection(desc, build, onChange) {
         min: "1",
         inputmode: "numeric",
         value: q.limit,
-        placeholder: "No limit",
+        placeholder: "None",
         oninput: () => {
           q.limit = limit.value;
           offset.disabled = !limit.value.trim();
@@ -808,52 +924,32 @@ function optionsSection(desc, build, onChange) {
         },
       });
 
-      parts.push(
-        h(
-          "div",
-          { class: "option-grid" },
-          h("div", { class: "field wide" }, h("label", { for: "q-orderby" }, "Order by"), orderby),
-          h("div", { class: "field" }, h("label", { for: "q-limit" }, "Limit"), limit),
-          h("div", { class: "field" }, h("label", { for: "q-offset" }, "Offset"), offset),
-        ),
-      );
+      rows.push(row("Order by", orderby, { forId: "q-orderby" }), row("Limit", limit, { forId: "q-limit", extra: "row-narrow" }), row("Offset", offset, { forId: "q-offset", extra: "row-narrow" }));
     }
 
-    const toggles = OPTION_TOGGLES.filter(([key]) => avail[key]).map(([key, label, hint]) => {
-      const input = h("input", {
-        class: "switch",
-        type: "checkbox",
-        role: "switch",
-        id: `q-${key}`,
-        checked: q[key],
-        onchange: () => {
-          q[key] = input.checked;
-          onChange();
-        },
-      });
-      return h("label", { class: "check-row toggle-row", for: `q-${key}` }, h("span", {}, h("span", { class: "filter-label" }, label), h("span", { class: "subtle block" }, hint)), input);
-    });
+    for (const [key, label, hint] of OPTION_TOGGLES.filter(([k]) => avail[k])) {
+      const toggle = (checked) => {
+        q[key] = checked;
+        onChange();
+      };
+      rows.push(switchRow(`q-${key}`, label, q[key], toggle, { title: hint }).el);
+    }
 
-    if (toggles.length) parts.push(h("div", { class: "toggle-list" }, toggles));
-
-    box.replaceChildren(...parts);
+    box.replaceChildren(group("Output", rows, fmt.warning ? notice("warn", fmt.warning) : null));
   };
 
   draw();
   return box;
 }
 
-function previewPanel(desc, build) {
+function previewGroup(desc, build) {
   const urlBox = h("pre", { class: "url-box", tabindex: "0", "aria-label": "Query URL" }, h("code", { class: "url" }, "Building…"));
-  const facts = h("dl", { class: "facts" });
   const messages = h("div", { class: "messages", "aria-live": "polite" });
-  const copy = h("button", { class: "icon-btn", type: "button", "aria-label": "Copy query URL", onclick: () => lastUrl && copyText(lastUrl) }, icon("copy", 16));
-  const next = primaryButton("Review download", { onclick: () => (location.hash = `#/download/${encodeURIComponent(desc.key)}`) });
+  const copy = h("button", { class: "icon-btn icon-btn-small", type: "button", "aria-label": "Copy query URL", title: "Copy URL", onclick: () => lastUrl && copyText(lastUrl) }, icon("copy", 14));
+  const next = primaryButton("Review", { onclick: () => (location.hash = `#/download/${encodeURIComponent(desc.key)}`) });
   let lastUrl = "";
   let seq = 0;
   let timer;
-
-  const fact = (term, value) => [h("dt", {}, term), h("dd", { class: "num" }, value)];
 
   const update = async () => {
     const mine = ++seq;
@@ -865,14 +961,6 @@ function previewPanel(desc, build) {
 
       lastUrl = data.url;
       urlBox.replaceChildren(urlView(data.url));
-      const filterCount = Object.keys(data.filters).length;
-      facts.replaceChildren(
-        ...fact("Format", data.query_options.output_format.toUpperCase()),
-        ...fact("Filters", filterCount ? String(filterCount) : "None"),
-        ...fact("Limit", data.query_options.limit ?? "None"),
-        ...fact("Order", data.summary.orderby || "Default"),
-        ...(data.favorites ? fact("Favorites", data.favorites) : []),
-      );
       messages.replaceChildren(...data.warnings.map((w) => notice("warn", w)));
       next.disabled = false;
       urlBox.classList.remove("stale");
@@ -894,62 +982,49 @@ function previewPanel(desc, build) {
   const el = h(
     "aside",
     { class: "preview", "aria-label": "Query preview" },
-    panel(
-      h("div", { class: "preview-head" }, h("h2", {}, "Query preview"), copy),
-      urlBox,
-      facts,
-      messages,
-      next,
-      h("p", { class: "subtle" }, "Built on this machine. Nothing has been sent to Space-Track."),
-    ),
+    h("div", { class: "group-head" }, h("h2", { class: "group-title" }, "Query"), copy),
+    h("div", { class: "group-body group-pad" }, urlBox),
+    messages,
   );
 
   update();
-  return { el, schedule };
+  return { el, schedule, next };
 }
 
 async function builderView(key) {
   const desc = await loadDataset(key);
   const build = getBuild(desc);
-  const preview = previewPanel(desc, build);
+  const preview = previewGroup(desc, build);
   const onChange = preview.schedule;
 
   const filters = desc.fields.length
-    ? panel(h("h2", {}, "Filters"), h("div", { class: "filter-list" }, desc.fields.map((field) => fieldRow(field, build, onChange))))
-    : panel(h("h2", {}, "Filters"), h("p", { class: "muted" }, "This dataset takes no filters."));
+    ? group("Filters", desc.fields.flatMap((field) => fieldRows(field, build, onChange)))
+    : group("Filters", h("div", { class: "row" }, h("span", { class: "row-label muted" }, "No filters for this dataset.")));
 
   const reset = h(
     "button",
     {
-      class: "btn btn-quiet btn-small",
+      class: "btn",
       type: "button",
+      title: "Reset to defaults",
       onclick: () => {
         state.builds.delete(desc.key);
         render();
       },
     },
-    icon("refresh", 16),
-    "Reset to defaults",
+    "Reset",
   );
 
-  return h(
-    "div",
-    { class: "builder" },
-    h(
-      "header",
-      { class: "view-head reveal" },
-      h("a", { class: "back", href: "#/datasets" }, icon("back", 16), "All datasets"),
-      h("h1", {}, desc.label),
-      h("p", {}, desc.description),
-      desc.warning ? notice("warn", desc.warning) : null,
-    ),
-    h(
+  return {
+    title: shortName(desc),
+    actions: [reset, preview.next],
+    body: h(
       "div",
-      { class: "builder-grid" },
-      h("div", { class: "builder-main reveal" }, filters, panel(h("h2", {}, "Output"), optionsSection(desc, build, onChange)), h("div", { class: "builder-foot" }, reset)),
-      h("div", { class: "reveal" }, preview.el),
+      { class: "builder" },
+      h("div", { class: "builder-side" }, preview.el),
+      h("div", { class: "builder-main" }, desc.warning ? notice("warn", desc.warning) : null, filters, outputGroup(desc, build, onChange)),
     ),
-  );
+  };
 }
 
 // ============================================================================
@@ -972,9 +1047,8 @@ function closeDialog(dialog) {
 }
 
 function dialogShell(title, ...body) {
-  const dialog = h("dialog", { class: "dialog", "aria-labelledby": "dialog-title" });
-  const close = h("button", { class: "icon-btn", type: "button", "aria-label": "Close", onclick: () => closeDialog(dialog) }, icon("close", 18));
-  dialog.append(h("div", { class: "dialog-head" }, h("h2", { id: "dialog-title" }, title), close), ...body);
+  const dialog = h("dialog", { class: "sheet glass", "aria-labelledby": "dialog-title" });
+  dialog.append(h("h2", { class: "sheet-title", id: "dialog-title" }, title), ...body.flat().filter(Boolean));
   return dialog;
 }
 
@@ -983,7 +1057,7 @@ function previewBlock(preview) {
 
   if (preview.table && preview.table.columns.length) {
     const { columns, rows, total } = preview.table;
-    const note = total > rows.length ? `First ${rows.length} of ${total} rows.` : `${total} ${total === 1 ? "row" : "rows"}.`;
+    const note = total > rows.length ? `First ${rows.length} of ${total} rows` : `${total} ${total === 1 ? "row" : "rows"}`;
 
     return h(
       "div",
@@ -993,15 +1067,11 @@ function previewBlock(preview) {
         { class: "table-wrap", tabindex: "0", role: "region", "aria-label": "Data preview" },
         h("table", { class: "data" }, h("thead", {}, h("tr", {}, columns.map((c) => h("th", { scope: "col" }, c)))), h("tbody", {}, rows.map((r) => h("tr", {}, r.map((cell) => h("td", {}, cell)))))),
       ),
-      h("p", { class: "subtle" }, note),
+      h("p", { class: "group-foot" }, note),
     );
   }
 
   return h("div", { class: "preview-data" }, h("pre", { class: "text-preview", tabindex: "0" }, preview.text));
-}
-
-function stat(label, value) {
-  return h("div", { class: "stat" }, h("span", { class: "stat-value num" }, value), h("span", { class: "stat-label" }, label));
 }
 
 // ============================================================================
@@ -1012,45 +1082,37 @@ async function downloadView(key) {
   const desc = await loadDataset(key);
   const build = getBuild(desc);
   const payload = queryPayload(desc, build);
+  const back = { href: `#/build/${encodeURIComponent(key)}`, label: "Back to filters" };
   let prepared;
 
   try {
     prepared = await api("/api/preview", { method: "POST", body: payload });
   } catch (error) {
     if (error.status !== 400) throw error;
-
-    return h(
-      "div",
-      { class: "download" },
-      h("header", { class: "view-head" }, h("a", { class: "back", href: `#/build/${encodeURIComponent(key)}` }, icon("back", 16), "Back to filters"), h("h1", {}, "This query isn't ready yet")),
-      panel(notice("warn", error.message)),
-    );
+    return { title: "Download", back, body: notice("warn", error.message) };
   }
 
   const ex = build.export;
   const isJson = prepared.query_options.output_format === "json";
 
-  const dir = h("input", { class: "input", id: "x-dir", value: ex.download_dir, placeholder: "optional/subfolder", spellcheck: "false", oninput: () => (ex.download_dir = dir.value) });
+  const dir = h("input", { class: "input input-bare", id: "x-dir", value: ex.download_dir, placeholder: "subfolder", spellcheck: "false", oninput: () => (ex.download_dir = dir.value) });
   const name = h("input", {
     class: "input",
     id: "x-name",
     value: ex.custom_name,
-    placeholder: key === "publicfiles_download" ? "Keep the original file name" : `Automatic: spacetrack_${key}_<UTC time>`,
+    placeholder: key === "publicfiles_download" ? "Original name" : "Automatic",
+    title: "Without an extension; it's added for you.",
     spellcheck: "false",
     oninput: () => (ex.custom_name = name.value),
   });
-  const switchRow = (id, label, hint, prop) => {
-    const input = h("input", { class: "switch", type: "checkbox", role: "switch", id, checked: ex[prop], onchange: () => (ex[prop] = input.checked) });
-    return h("label", { class: "check-row toggle-row", for: id }, h("span", {}, h("span", { class: "filter-label" }, label), h("span", { class: "subtle block" }, hint)), input);
-  };
 
   const result = h("div", { class: "result", "aria-live": "polite" });
-  const go = primaryButton("Download from Space-Track", {}, "download");
+  const go = primaryButton("Download");
 
   const run = async () => {
     setBusy(go, true);
     result.replaceChildren(
-      panel(h("div", { class: "waiting" }, h("span", { class: "spinner", "aria-hidden": "true" }), h("div", {}, h("h2", {}, "Waiting for Space-Track"), h("p", { class: "muted" }, "Large queries can take a few minutes. Keep this tab open.")))),
+      group(null, h("div", { class: "row waiting" }, h("span", { class: "spinner", "aria-hidden": "true" }), h("span", { class: "row-label" }, "Waiting for Space-Track…"), h("span", { class: "row-value" }, "Large queries can take minutes"))),
     );
 
     try {
@@ -1068,19 +1130,19 @@ async function downloadView(key) {
       }
 
       if (error.status === 401) state.session = await api("/api/session").catch(() => state.session);
-      result.replaceChildren(panel(h("h2", {}, "The download didn't complete"), notice("error", error.message)));
+      result.replaceChildren(group("Download failed", h("div", { class: "group-pad" }, notice("error", error.message))));
     } finally {
       setBusy(go, false);
     }
   };
 
   go.addEventListener("click", () => {
-    const confirm = primaryButton("Send request", {}, "download");
+    const confirm = primaryButton("Send Request");
     const dialog = dialogShell(
       "Send this request to Space-Track?",
       h("pre", { class: "url-box" }, urlView(prepared.url)),
-      h("p", { class: "muted" }, "This is one request against your account's limits (about 30 a minute and 300 an hour). Prefer one well-filtered query to many small ones."),
-      h("div", { class: "dialog-actions" }, h("button", { class: "btn", type: "button", onclick: () => closeDialog(dialog) }, "Cancel"), confirm),
+      h("p", { class: "muted" }, "Counts toward your rate limit (about 30 a minute, 300 an hour)."),
+      h("div", { class: "sheet-actions" }, h("button", { class: "btn", type: "button", onclick: () => closeDialog(dialog) }, "Cancel"), confirm),
     );
     confirm.addEventListener("click", () => {
       closeDialog(dialog);
@@ -1090,77 +1152,58 @@ async function downloadView(key) {
     confirm.focus();
   });
 
-  return h(
-    "div",
-    { class: "download" },
-    h(
-      "header",
-      { class: "view-head reveal" },
-      h("a", { class: "back", href: `#/build/${encodeURIComponent(key)}` }, icon("back", 16), "Back to filters"),
-      h("h1", {}, `Download ${desc.label}`),
-      h("p", {}, "Check the query, choose where to save it, then send it. A metadata file is written beside the data."),
-    ),
-    h(
+  const filters = Object.entries(prepared.filters);
+
+  return {
+    title: "Download",
+    back,
+    actions: [state.session.logged_in ? go : null],
+    body: h(
       "div",
-      { class: "download-grid" },
-      h(
-        "div",
-        { class: "reveal" },
-        panel(
-          h("h2", {}, "Query"),
-          h("pre", { class: "url-box" }, urlView(prepared.url)),
-          h(
-            "dl",
-            { class: "facts" },
-            h("dt", {}, "Dataset"),
-            h("dd", {}, `${desc.label} (class/${desc.api_class})`),
-            h("dt", {}, "Format"),
-            h("dd", {}, prepared.query_options.output_format.toUpperCase()),
-            h("dt", {}, "Filters"),
-            h("dd", {}, Object.keys(prepared.filters).length ? Object.entries(prepared.filters).map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
-            h("dt", {}, "Limit"),
-            h("dd", { class: "num" }, prepared.query_options.limit ?? "None"),
-          ),
-          ...prepared.warnings.map((w) => notice("warn", w)),
-        ),
+      { class: "stack" },
+      state.session.logged_in ? null : notice("warn", "Sign in to download."),
+      group(
+        "Query",
+        [
+          h("div", { class: "group-pad" }, h("pre", { class: "url-box" }, urlView(prepared.url))),
+          valueRow("Dataset", shortName(desc)),
+          valueRow("Format", prepared.query_options.output_format.toUpperCase()),
+          valueRow("Filters", filters.length ? filters.map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
+          valueRow("Limit", prepared.query_options.limit ?? "None"),
+        ],
+        prepared.warnings.map((w) => notice("warn", w)),
       ),
-      h(
-        "div",
-        { class: "reveal" },
-        panel(
-          h("h2", {}, "Save to"),
-          h("div", { class: "field" }, h("label", { for: "x-dir" }, "Folder"), h("div", { class: "prefixed" }, h("span", { class: "prefix" }, "downloads/"), dir)),
-          h("div", { class: "field" }, h("label", { for: "x-name" }, "File name"), name, h("p", { class: "subtle" }, "Without an extension; it's added for you.")),
-          h(
-            "div",
-            { class: "toggle-list" },
-            switchRow("x-overwrite", "Overwrite a file with the same name", "Otherwise _1, _2 … is appended.", "overwrite"),
-            isJson ? switchRow("x-pretty", "Pretty-print JSON", "Indented for reading; turn off for smaller files.", "pretty_json") : null,
-          ),
-          state.session.logged_in ? go : notice("warn", "Sign in to download."),
-        ),
-      ),
+      group("Save to", [
+        row("Folder", h("div", { class: "prefixed" }, h("span", { class: "prefix" }, "downloads/"), dir), { forId: "x-dir" }),
+        row("File name", name, { forId: "x-name" }),
+        switchRow("x-overwrite", "Overwrite existing file", ex.overwrite, (checked) => (ex.overwrite = checked), { title: "Otherwise _1, _2 … is appended." }).el,
+        isJson ? switchRow("x-pretty", "Pretty-print JSON", ex.pretty_json, (checked) => (ex.pretty_json = checked)).el : null,
+      ]),
+      result,
     ),
-    result,
-  );
+  };
 }
 
 function resultPanel(data) {
   const file = data.file;
 
-  return panel(
-    h("div", { class: "result-head" }, h("h2", {}, "Saved"), h("span", { class: "ok" }, `HTTP ${data.status_code}`)),
-    h(
-      "div",
-      { class: "stats" },
-      stat("records", file.record_count ?? "–"),
-      stat("on disk", formatBytes(file.size_bytes)),
-      stat("seconds", data.elapsed_seconds.toFixed(2)),
+  return h(
+    "div",
+    { class: "stack" },
+    group(
+      "Saved",
+      [
+        valueRow("Records", file.record_count ?? "–"),
+        valueRow("Size", formatBytes(file.size_bytes)),
+        valueRow("Time", `${data.elapsed_seconds.toFixed(2)} s`),
+        valueRow("Response", h("span", { class: "ok" }, `HTTP ${data.status_code}`)),
+        valueRow("File", h("code", {}, file.path)),
+        valueRow("Metadata", data.metadata_file ? h("code", {}, data.metadata_file) : "Not saved"),
+      ],
+      data.metadata_error ? notice("warn", data.metadata_error) : null,
     ),
-    h("dl", { class: "facts" }, h("dt", {}, "File"), h("dd", {}, h("code", {}, file.path)), h("dt", {}, "Metadata"), h("dd", {}, data.metadata_file ? h("code", {}, data.metadata_file) : "Not saved")),
-    data.metadata_error ? notice("warn", data.metadata_error) : null,
     previewBlock(data.preview),
-    h("div", { class: "result-actions" }, h("a", { class: "btn", href: "#/datasets" }, "Build another query"), h("a", { class: "btn btn-quiet", href: "#/history" }, "Open history")),
+    h("div", { class: "button-row" }, h("a", { class: "btn", href: "#/datasets" }, "New Query"), h("a", { class: "btn", href: "#/history" }, "Open History")),
   );
 }
 
@@ -1171,39 +1214,32 @@ function resultPanel(data) {
 function historyDialog(entry) {
   const previewBox = h("div", { class: "preview-slot" }, entry.output_exists ? h("div", { class: "waiting" }, h("span", { class: "spinner", "aria-hidden": "true" }), h("span", { class: "muted" }, "Reading the saved file…")) : notice("warn", "The data file is no longer on disk."));
   const filters = Object.entries(entry.filters || {});
+  let dialog;
 
-  const dialog = dialogShell(
-    entry.dataset_label || entry.dataset_key,
+  dialog = dialogShell(
+    SHORT_NAMES[entry.dataset_key] || entry.dataset_label || entry.dataset_key,
     h(
       "div",
       { class: "url-row" },
       h("pre", { class: "url-box" }, urlView(entry.query_url || "")),
-      h("button", { class: "icon-btn", type: "button", "aria-label": "Copy query URL", onclick: () => copyText(entry.query_url || "") }, icon("copy", 16)),
+      h("button", { class: "icon-btn icon-btn-small", type: "button", "aria-label": "Copy query URL", title: "Copy URL", onclick: () => copyText(entry.query_url || "") }, icon("copy", 14)),
     ),
-    h(
-      "dl",
-      { class: "facts" },
-      h("dt", {}, "Saved"),
-      h("dd", {}, formatTime(entry.created_utc)),
-      h("dt", {}, "Filters"),
-      h("dd", {}, filters.length ? filters.map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
-      entry.favorites ? [h("dt", {}, "Favorites"), h("dd", {}, entry.favorites)] : null,
-      h("dt", {}, "Records"),
-      h("dd", { class: "num" }, entry.estimated_record_count ?? "–"),
-      h("dt", {}, "Size"),
-      h("dd", { class: "num" }, formatBytes(entry.output_size_bytes)),
-      h("dt", {}, "Response"),
-      h("dd", { class: "num" }, entry.response_status_code ? `HTTP ${entry.response_status_code} in ${Number(entry.response_elapsed_seconds || 0).toFixed(2)} s` : "–"),
-      h("dt", {}, "File"),
-      h("dd", {}, h("code", {}, entry.output_file)),
-      h("dt", {}, "Metadata"),
-      h("dd", {}, h("code", {}, entry.meta_file)),
-    ),
-    ...(entry.notes || []).map((note) => h("p", { class: "subtle" }, note)),
+    group(null, [
+      valueRow("Saved", formatTime(entry.created_utc)),
+      valueRow("Filters", filters.length ? filters.map(([k, v]) => `${k} ${v}`).join(", ") : "None"),
+      entry.favorites ? valueRow("Favorites", entry.favorites) : null,
+      valueRow("Records", entry.estimated_record_count ?? "–"),
+      valueRow("Size", formatBytes(entry.output_size_bytes)),
+      valueRow("Response", entry.response_status_code ? `HTTP ${entry.response_status_code} in ${Number(entry.response_elapsed_seconds || 0).toFixed(2)} s` : "–"),
+      valueRow("File", h("code", {}, entry.output_file)),
+      valueRow("Metadata", h("code", {}, entry.meta_file)),
+    ]),
+    (entry.notes || []).map((note) => h("p", { class: "subtle" }, note)),
     previewBox,
+    h("div", { class: "sheet-actions" }, h("button", { class: "btn btn-primary", type: "button", onclick: () => closeDialog(dialog) }, "Done")),
   );
 
-  dialog.classList.add("dialog-wide");
+  dialog.classList.add("sheet-wide");
   openDialog(dialog);
 
   if (entry.output_exists) {
@@ -1220,58 +1256,45 @@ async function historyView() {
   const refresh = h(
     "button",
     {
-      class: "btn btn-small",
+      class: "btn",
       type: "button",
       onclick: () => {
         state.history = null;
         render();
       },
     },
-    icon("refresh", 16),
     "Refresh",
   );
 
-  const row = (entry) =>
+  const listRow = (entry) =>
     h(
       "button",
-      { class: "history-row", type: "button", onclick: () => historyDialog(entry) },
-      h("span", { class: "history-main" }, h("span", { class: "history-title" }, entry.dataset_label || entry.dataset_key), h("span", { class: "subtle history-file" }, entry.output_filename || entry.output_file)),
-      h(
-        "span",
-        { class: "history-meta num" },
-        h("span", { class: "format" }, (entry.output_format || "").toUpperCase()),
-        h("span", {}, entry.estimated_record_count === null || entry.estimated_record_count === undefined ? "–" : `${entry.estimated_record_count} records`),
-        h("span", {}, formatBytes(entry.output_size_bytes)),
-        entry.output_exists ? null : h("span", { class: "meta-warn" }, "File missing"),
-      ),
-      h("span", { class: "history-time subtle" }, formatTime(entry.created_utc)),
+      { class: "list-row", type: "button", onclick: () => historyDialog(entry) },
+      h("span", { class: "row-text" }, h("span", { class: "row-title" }, SHORT_NAMES[entry.dataset_key] || entry.dataset_label || entry.dataset_key), h("span", { class: "row-detail" }, entry.output_filename || entry.output_file)),
+      entry.output_exists ? null : h("span", { class: "tag tag-warn" }, "File missing"),
+      h("span", { class: "row-meta num" }, [(entry.output_format || "").toUpperCase(), formatBytes(entry.output_size_bytes), formatTime(entry.created_utc)].filter(Boolean).join(" · ")),
+      h("span", { class: "chevron" }, icon("chevronRight", 14)),
     );
 
   const body = entries.length
-    ? panel(h("div", { class: "history-list" }, entries.map(row)))
-    : panel(
-        h("div", { class: "empty" }, h("h2", {}, "No downloads yet"), h("p", { class: "muted" }, "Each download writes a _meta.json file beside its data. They'll be listed here."), state.session.logged_in ? h("a", { class: "btn", href: "#/datasets" }, "Choose a dataset") : null),
-      );
+    ? group(null, entries.map(listRow))
+    : h("div", { class: "empty" }, h("p", { class: "muted" }, "No downloads yet."), state.session.logged_in ? h("a", { class: "btn", href: "#/datasets" }, "Choose a Dataset") : null);
 
-  return h(
-    "div",
-    { class: "history" },
-    h(
-      "header",
-      { class: "view-head history-head reveal" },
-      h("div", {}, h("h1", {}, "Download history"), h("p", {}, `Read from the metadata files under downloads/. ${entries.length} ${entries.length === 1 ? "download" : "downloads"}; nothing here contacts Space-Track.`)),
-      refresh,
-    ),
-    errors.length
-      ? h(
-          "details",
-          { class: "notice notice-warn errors reveal" },
-          h("summary", {}, `${errors.length} metadata ${errors.length === 1 ? "file" : "files"} couldn't be read`),
-          h("ul", {}, errors.map((e) => h("li", {}, e))),
-        )
-      : null,
-    h("div", { class: "reveal" }, body),
-  );
+  return {
+    title: "History",
+    actions: [refresh],
+    body: [
+      errors.length
+        ? h(
+            "details",
+            { class: "notice notice-warn errors" },
+            h("summary", {}, `${errors.length} metadata ${errors.length === 1 ? "file" : "files"} couldn't be read`),
+            h("ul", {}, errors.map((e) => h("li", {}, e))),
+          )
+        : null,
+      body,
+    ],
+  };
 }
 
 // ============================================================================
@@ -1291,6 +1314,8 @@ function parseRoute() {
   return { name, params: rest.map(decodeURIComponent) };
 }
 
+let renderSeq = 0;
+
 async function render() {
   const { name, params } = parseRoute();
   const fallback = state.session.logged_in ? "datasets" : "login";
@@ -1308,22 +1333,33 @@ async function render() {
     return;
   }
 
-  const active = routes[name] || routes[fallback] || routes.login;
-  renderChrome(name);
+  const mine = ++renderSeq;
+  const activeName = routes[name] ? name : fallback;
+  const active = routes[activeName] || routes.login;
+  setSidebarOpen(false);
+  for (const sheet of document.querySelectorAll("dialog.sheet")) closeDialog(sheet);
+  await renderChrome();
+
+  let page;
 
   try {
-    const view = await active.view(...params);
-    app.replaceChildren(view);
+    page = await active.view(...params);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       sessionExpired();
       return;
     }
 
-    app.replaceChildren(panel(notice("error", error.message)));
+    page = { title: "Something went wrong", body: notice("error", error.message) };
   }
 
+  // A newer navigation started while this view was loading.
+  if (mine !== renderSeq) return;
+
+  showPage(page);
+  moveSidebarPill(["build", "download"].includes(activeName) ? params[0] : activeName);
   window.scrollTo({ top: 0 });
+  updateToolbar();
 }
 
 async function start() {

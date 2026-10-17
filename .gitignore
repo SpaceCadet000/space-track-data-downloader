@@ -92,3 +92,5 @@ Thumbs.db
 *.swo
 # Test fixtures must be tracked despite the data-file rules above.
 !tests/fixtures/**
+# The GUI page shell must be tracked despite the *.html rule above.
+!gui/static/index.html
