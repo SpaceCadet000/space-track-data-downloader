@@ -310,7 +310,7 @@ def test_configure_gp_history_asks_norad_once(scripted_input) -> None:
     [
         ("satcat", [""] * 10, {"CURRENT": "Y"}),
         ("satcat_debut", [""] * 6, {"DEBUT": ">now-1"}),
-        ("satcat_change", [""] * 6, {"CHANGE_DATE": ">now-7"}),
+        ("satcat_change", [""] * 6, {"CHANGE_MADE": ">now-7"}),
         ("launch_site", ["y", "afetr", "", ""], {"SITE_CODE": "AFETR"}),
         ("decay", [""] * 9, {"DECAY_EPOCH": ">now-7"}),
         ("tip", [""] * 5 + ["y", ""], {"INSERT_EPOCH": ">now-0.042", "HIGH_INTEREST": "Y"}),
@@ -358,7 +358,7 @@ def test_configure_decay_object_name_asked_once(scripted_input) -> None:
         ("cdm_public", "CREATED"),
         ("tip", "INSERT_EPOCH"),
         ("decay", "DECAY_EPOCH"),
-        ("satcat_change", "CHANGE_DATE"),
+        ("satcat_change", "CHANGE_MADE"),
     ],
 )
 def test_default_yes_date_prompt_adds_filter(scripted_input, dataset_key, predicate) -> None:

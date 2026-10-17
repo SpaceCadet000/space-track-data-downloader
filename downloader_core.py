@@ -535,13 +535,14 @@ def _satcat_fields(dataset_key: str) -> list[FilterField]:
 
     elif dataset_key == "satcat_change":
         fields = [
+            # satcat_change names its fields CURRENT_*/PREVIOUS_* and CHANGE_MADE.
             date_field(
-                "change_date", "CHANGE_DATE", "Filter by CHANGE_DATE?", gate_default=True,
-                default=dataset.recommended_filters.get("CHANGE_DATE", ">now-7"),
+                "change_date", "CHANGE_MADE", "Filter by CHANGE_MADE?", gate_default=True,
+                default=dataset.recommended_filters.get("CHANGE_MADE", ">now-7"),
             ),
             norad_field(),
-            name_field("SATNAME"),
-            country_field("COUNTRY"),
+            name_field("CURRENT_NAME"),
+            country_field("CURRENT_COUNTRY"),
         ]
 
     else:  # launch_site

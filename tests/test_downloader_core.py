@@ -92,6 +92,13 @@ MODELDEF_FIXTURES = {
     "gp": "modeldef_gp.json",
     "gp_history": "modeldef_gp.json",
     "decay": "modeldef_decay.json",
+    "satcat": "modeldef_satcat.json",
+    "boxscore": "modeldef_boxscore.json",
+    "satcat_change": "modeldef_satcat_change.json",
+    "satcat_debut": "modeldef_satcat_debut.json",
+    "launch_site": "modeldef_launch_site.json",
+    "tip": "modeldef_tip.json",
+    "cdm_public": "modeldef_cdm_public.json",
 }
 
 def emitted_predicates(dataset_key: str) -> set[str]:

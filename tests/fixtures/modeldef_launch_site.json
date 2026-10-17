@@ -1,0 +1,1 @@
+{"controller":"basicspacedata","data":[{"Field":"SITE_CODE","Type":"char(5)","Null":"NO","Key":"","Default":"","Extra":""},{"Field":"LAUNCH_SITE","Type":"char(64)","Null":"NO","Key":"","Default":"","Extra":""}]}
