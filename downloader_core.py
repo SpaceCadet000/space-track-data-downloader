@@ -564,7 +564,7 @@ def _decay_fields(dataset_key: str) -> list[FilterField]:
                 default=dataset.recommended_filters.get("DECAY_EPOCH", ">now-7"),
             ),
             name_field("OBJECT_NAME"),
-            country_field("COUNTRY_CODE"),
+            country_field("COUNTRY"),
             _preset("rcs_size", "rcs_size", "Radar cross-section size filter", gate="Filter by RCS_SIZE?"),
             _text("precedence", "PRECEDENCE", "PRECEDENCE value", "Filter by PRECEDENCE?", help=PRECEDENCE_HELP),
         ]

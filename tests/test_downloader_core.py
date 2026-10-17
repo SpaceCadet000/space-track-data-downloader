@@ -85,6 +85,43 @@ def test_field_choices() -> None:
     assert [key for key, _ in gp["country"].choices()] == list(COUNTRY_PRESETS)
     assert gp["favorites"].choices() == core.favorite_options()
 
+# Space-Track modeldef output (basicspacedata/modeldef/class/<class>) for the
+# classes whose field names have been confirmed. gp_history returned the
+# same field list as gp.
+MODELDEF_FIXTURES = {
+    "gp": "modeldef_gp.json",
+    "gp_history": "modeldef_gp.json",
+    "decay": "modeldef_decay.json",
+}
+
+def emitted_predicates(dataset_key: str) -> set[str]:
+    """
+    Every predicate the app can send for a dataset, outside custom filters.
+    """
+    dataset = DATASETS[dataset_key]
+    names = set(dataset.common_filters) | set(dataset.recommended_filters)
+
+    if dataset.default_orderby:
+        names.add(dataset.default_orderby.split()[0])
+
+    for spec in core.dataset_filter_fields(dataset_key):
+        if spec.kind == "preset":
+            for option, _ in spec.choices():
+                names |= set(core.resolve_preset(str(spec.preset_table), option))
+        elif spec.predicate:
+            names.add(spec.predicate)
+
+    return names
+
+@pytest.mark.parametrize("dataset_key", sorted(MODELDEF_FIXTURES))
+def test_predicates_exist_in_space_track_class(dataset_key, fixture_text) -> None:
+    fields = {row["Field"] for row in json.loads(fixture_text(MODELDEF_FIXTURES[dataset_key]))["data"]}
+    assert emitted_predicates(dataset_key) - fields == set()
+
+def test_gp_perigee_presets_use_periapsis() -> None:
+    assert core.resolve_preset("orbit_regime", "leo_perigee") == {"PERIAPSIS": "<2000"}
+    assert core.resolve_preset("orbit_regime", "meo") == {"PERIAPSIS": "2000--35586"}
+
 # =============================================================================
 # Resolvers
 # =============================================================================

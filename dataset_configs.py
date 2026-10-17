@@ -168,9 +168,9 @@ ORBIT_REGIME_FILTERS: dict[str, dict[str, Any]] = {
     },
     "leo_perigee": {
         "label": "LEO - Low Earth Orbit by perigee",
-        "description": "Objects with perigee below 2,000 km",
+        "description": "Objects with perigee (GP PERIAPSIS) below 2,000 km",
         "filters": {
-            "PERIGEE": "<2000",
+            "PERIAPSIS": "<2000",
         },
     },
     "leo_mean_motion": {
@@ -182,9 +182,9 @@ ORBIT_REGIME_FILTERS: dict[str, dict[str, Any]] = {
     },
     "meo": {
         "label": "MEO - Medium Earth Orbit",
-        "description": "Objects with perigee between 2,000 km and 35,586 km",
+        "description": "Objects with perigee (GP PERIAPSIS) between 2,000 km and 35,586 km",
         "filters": {
-            "PERIGEE": "2000--35586",
+            "PERIAPSIS": "2000--35586",
         },
     },
     "geo_period": {
@@ -550,8 +550,8 @@ DATASETS: dict[str, DatasetConfig] = {
             "DECAY_DATE",
             "PERIOD",
             "INCLINATION",
-            "APOGEE",
-            "PERIGEE",
+            "APOAPSIS",
+            "PERIAPSIS",
             "ECCENTRICITY",
             "MEAN_MOTION",
             "RCS_SIZE",
@@ -595,8 +595,8 @@ DATASETS: dict[str, DatasetConfig] = {
             "GP_ID",
             "PERIOD",
             "INCLINATION",
-            "APOGEE",
-            "PERIGEE",
+            "APOAPSIS",
+            "PERIAPSIS",
             "ECCENTRICITY",
             "MEAN_MOTION",
         ),
@@ -719,13 +719,12 @@ DATASETS: dict[str, DatasetConfig] = {
             "NORAD_CAT_ID",
             "OBJECT_NAME",
             "INTLDES",
-            "COUNTRY_CODE",
+            "COUNTRY",
             "MSG_EPOCH",
             "DECAY_EPOCH",
             "PRECEDENCE",
             "SOURCE",
             "RCS_SIZE",
-            "FILE",
         ),
         recommended_filters={},
         notes=(
@@ -1018,7 +1017,7 @@ REST_OPERATORS: dict[str, dict[str, str]] = {
     "less_than": {
         "label": "Less than",
         "symbol": "<",
-        "example": "PERIGEE/<2000",
+        "example": "PERIAPSIS/<2000",
     },
     "not_equal": {
         "label": "Not equal",
@@ -1069,7 +1068,7 @@ PREDICATE_DESCRIPTIONS: dict[str, str] = {
     "SATNAME": "Satellite name in SATCAT",
     "INTLDES": "International designator",
     "OBJECT_TYPE": "Object type such as PAYLOAD, ROCKET BODY, DEBRIS, or UNKNOWN",
-    "COUNTRY": "Country or owner field in SATCAT",
+    "COUNTRY": "Country or owner field in SATCAT and decay",
     "COUNTRY_CODE": "Country or owner code in GP-related classes",
     "SITE": "Launch site code",
     "LAUNCH": "Launch date in SATCAT",
@@ -1081,6 +1080,8 @@ PREDICATE_DESCRIPTIONS: dict[str, str] = {
     "INCL": "Inclination in degrees",
     "APOGEE": "Apogee altitude in kilometers",
     "PERIGEE": "Perigee altitude in kilometers",
+    "APOAPSIS": "Apogee altitude in kilometers (GP-related classes)",
+    "PERIAPSIS": "Perigee altitude in kilometers (GP-related classes)",
     "ECCENTRICITY": "Orbital eccentricity",
     "MEAN_MOTION": "Mean motion in revolutions per day",
     "RCS": "Radar cross section value or category",

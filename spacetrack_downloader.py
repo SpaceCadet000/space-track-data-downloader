@@ -512,7 +512,7 @@ def ask_country_filter(predicate_name: str) -> dict[str, str]:
 
     Args:
         predicate_name:
-            Predicate to use, usually COUNTRY_CODE for GP/decay or COUNTRY for SATCAT.
+            Predicate to use: COUNTRY_CODE for GP classes, COUNTRY for SATCAT and decay.
     """
     spec = country_field(predicate_name)
     return resolve_field(spec, ask_field(spec))
