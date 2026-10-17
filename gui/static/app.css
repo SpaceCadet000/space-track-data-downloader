@@ -558,6 +558,14 @@ main {
 
 .row-add { min-height: 40px; }
 
+/* Gentle inline hint under a filter input, e.g. "null" → "null-val". */
+.row-hint {
+  margin: -4px 0 0;
+  padding: 0 14px 9px 30px;
+  color: var(--warn-ink);
+  font-size: 12px;
+}
+
 /* Navigable rows: dataset list and history. */
 .list-row {
   position: relative;

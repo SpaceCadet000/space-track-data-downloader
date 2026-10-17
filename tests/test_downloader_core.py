@@ -167,6 +167,26 @@ def test_build_filter_config_flags_and_empty_text() -> None:
     result = core.build_filter_config("satcat", {"current": True, "on_orbit": False, "norad": "  "})
     assert result == {"filters": {"CURRENT": "Y"}, "favorites": None}
 
+def test_null_value_hints_flag_null_but_not_null_val() -> None:
+    values = {
+        "norad": "null",
+        "name": " NULL ",
+        "launch_date": "null-val",
+        "object_type": "all_on_orbit",
+        "custom": [["DECAY_DATE", "null"], ["PERIOD", "1430--1450"], ["RCS_SIZE", "null-val"]],
+    }
+
+    hints = core.null_value_hints(values)
+
+    assert [(h["field"], h.get("index")) for h in hints] == [("norad", None), ("name", None), ("custom", 0)]
+    assert all("null-val" in h["message"] for h in hints)
+    assert core.null_value_hints(None) == []
+
+def test_null_value_hints_leave_values_unchanged() -> None:
+    values = {"custom": [["DECAY_DATE", "null"]]}
+    core.null_value_hints(values)
+    assert core.build_filter_config("gp", values)["filters"]["DECAY_DATE"] == "null"
+
 def test_build_filter_config_publicfiles() -> None:
     assert core.build_filter_config("publicfiles_dirs", {}) == {
         "filters": {},

@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+import downloader_core as core
 import spacetrack_gui
 from conftest import FakeResponse
 
@@ -220,6 +221,17 @@ def test_preview_reports_tle_warning(gui) -> None:
     test_client, _, _, _ = gui
     body = gp_body(query_options={"output_format": "tle"})
     assert test_client.post("/api/preview", json=body).json()["warnings"]
+
+def test_preview_hints_null_val_for_null_values(gui) -> None:
+    test_client, _, sessions, _ = gui
+    body = gp_body(values={"object_type": "all_on_orbit", "custom": [["PERIOD", "1430--1450"], ["DECAY_DATE", "null"]]})
+
+    data = test_client.post("/api/preview", json=body).json()
+
+    assert data["value_hints"] == [{"field": "custom", "index": 1, "message": core.NULL_VALUE_HINT}]
+    assert data["filters"]["DECAY_DATE"] == "null"  # warned about, not rewritten
+    assert test_client.post("/api/preview", json=gp_body()).json()["value_hints"] == []
+    assert calls(sessions) == []
 
 @pytest.mark.parametrize(
     "body, status",

@@ -79,6 +79,10 @@ LEGACY_TLE_WARNING = (
     "TLE/3LE are legacy fixed-width formats. JSON, CSV, XML, or KVN "
     "are usually better for expanded catalog identifiers."
 )
+NULL_VALUE_HINT = (
+    'Did you mean "null-val"? Space-Track matches empty fields with '
+    'null-val; "null" matches nothing.'
+)
 
 NORAD_HELP = "Examples:\n  25544\n  25544,43013,48274\n  25544--26000\n  >40000\n  <100000"
 NAME_HELP = "Examples:\n  ISS\n  STARLINK~~\n  OBJECT~~\n  COSMOS~~"
@@ -788,6 +792,36 @@ def build_filter_config(
         config["publicfiles_download_name"] = publicfiles_download_name
 
     return config
+
+def null_value_hints(values: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """
+    Point out filter values typed as "null" where Space-Track expects "null-val".
+
+    The values are left as they are; "null" is a valid (if empty-handed) value.
+
+    Args:
+        values:
+            The same field-id mapping build_filter_config takes.
+
+    Returns:
+        One {"field", "message"} per suspect text value, plus "index" (the
+        position among the custom pairs) for custom filter values.
+    """
+    hints: list[dict[str, Any]] = []
+
+    def is_null(value: Any) -> bool:
+        return isinstance(value, str) and value.strip().lower() == "null"
+
+    for field_id, value in (values or {}).items():
+        if is_null(value):
+            hints.append({"field": field_id, "message": NULL_VALUE_HINT})
+
+        elif isinstance(value, (list, tuple)):
+            for index, pair in enumerate(value):
+                if isinstance(pair, (list, tuple)) and len(pair) == 2 and is_null(pair[1]):
+                    hints.append({"field": field_id, "index": index, "message": NULL_VALUE_HINT})
+
+    return hints
 
 # =============================================================================
 # Query options

@@ -45,6 +45,7 @@ from downloader_core import (
     format_warning,
     list_download_history,
     normalize_query_options,
+    null_value_hints,
     prepare_query,
     read_output_preview,
     resolve_download_dir,
@@ -331,7 +332,7 @@ def create_app(
 
     @app.post("/api/preview")
     def preview(body: QueryBody) -> dict[str, Any]:
-        return preview_payload(*prepare(body))
+        return {**preview_payload(*prepare(body)), "value_hints": null_value_hints(body.values)}
 
     # -------------------------------------------------------------------------
     # Download (the only Space-Track data request, sent on an explicit click)

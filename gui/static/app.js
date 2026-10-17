@@ -618,6 +618,26 @@ function parseExamples(help) {
     });
 }
 
+/** Predicate and value suggestions from the custom-filter help ("Predicate: X  Value: Y"). */
+function customSuggestions(help) {
+  const predicates = new Set();
+  const values = new Map([["null-val", "empty / not set"]]);
+
+  for (const match of (help || "").matchAll(/Predicate:\s*(\S+)\s+Value:\s*(\S+)/g)) {
+    predicates.add(match[1]);
+    if (!values.has(match[2])) values.set(match[2], "");
+  }
+
+  return { predicates: [...predicates], values: [...values] };
+}
+
+/** An inline "null" → "null-val" hint under a filter input; previewGroup fills it. */
+function hintSlot(slots, key) {
+  const el = h("p", { class: "row-hint", role: "note", hidden: true });
+  slots.set(key, el);
+  return el;
+}
+
 function urlView(url) {
   const base = "https://www.space-track.org";
   const code = h("code", { class: "url" });
@@ -641,7 +661,7 @@ async function copyText(text) {
  * The rows that hold a field's control. `label` is the left-hand label, or
  * null for an indented sub-row under a switch (the control then spans the row).
  */
-function controlRows(field, build, onChange, label) {
+function controlRows(field, build, onChange, label, slots) {
   const id = `f-${field.id}`;
   const extra = label ? "" : "row-sub row-full";
   const name = fieldName(field);
@@ -708,18 +728,25 @@ function controlRows(field, build, onChange, label) {
     });
     const datalist = listId ? h("datalist", { id: listId }, examples.map((ex) => h("option", { value: ex.value, label: ex.title || null }))) : null;
 
-    return [row(label, [input, datalist], { forId: id, extra })];
+    return [row(label, [input, datalist], { forId: id, extra }), hintSlot(slots, field.id)];
   }
 
   if (field.kind === "custom") {
     const list = h("div", { class: "row-stack" });
+    const suggestions = customSuggestions(field.help);
+    const predicateList = h("datalist", { id: `${id}-predicates` }, suggestions.predicates.map((p) => h("option", { value: p })));
+    const valueList = h("datalist", { id: `${id}-values` }, suggestions.values.map(([v, title]) => h("option", { value: v, label: title || null })));
 
     const drawRows = () => {
+      for (const key of [...slots.keys()]) if (key.startsWith(`${field.id}:`)) slots.delete(key);
+
       list.replaceChildren(
         ...build.custom.map((pair, index) => {
           const predicate = h("input", {
             class: "input",
             value: pair[0],
+            list: `${id}-predicates`,
+            autocomplete: "off",
             placeholder: "Predicate, e.g. PERIOD",
             "aria-label": `Custom filter ${index + 1} predicate`,
             spellcheck: "false",
@@ -731,6 +758,8 @@ function controlRows(field, build, onChange, label) {
           const value = h("input", {
             class: "input",
             value: pair[1],
+            list: `${id}-values`,
+            autocomplete: "off",
             placeholder: "Value, e.g. 1430--1450",
             "aria-label": `Custom filter ${index + 1} value`,
             spellcheck: "false",
@@ -754,7 +783,7 @@ function controlRows(field, build, onChange, label) {
             },
             icon("close", 14),
           );
-          return h("div", { class: "row row-sub row-custom" }, predicate, value, remove);
+          return h("div", { class: "custom-pair" }, h("div", { class: "row row-sub row-custom" }, predicate, value, remove), hintSlot(slots, `${field.id}:${index}`));
         }),
       );
     };
@@ -777,16 +806,16 @@ function controlRows(field, build, onChange, label) {
       "Add filter",
     );
 
-    return [list, h("div", { class: "row row-sub row-add" }, add)];
+    return [list, h("div", { class: "row row-sub row-add" }, add, predicateList, valueList)];
   }
 
   return [];
 }
 
-function fieldRows(field, build, onChange) {
-  if (!field.gate) return controlRows(field, build, onChange, fieldName(field));
+function fieldRows(field, build, onChange, slots) {
+  if (!field.gate) return controlRows(field, build, onChange, fieldName(field), slots);
 
-  const sub = field.kind === "flag" ? null : h("div", { class: "row-stack", hidden: !build.gates[field.id] }, controlRows(field, build, onChange, null));
+  const sub = field.kind === "flag" ? null : h("div", { class: "row-stack", hidden: !build.gates[field.id] }, controlRows(field, build, onChange, null, slots));
   const toggle = switchRow(
     `g-${field.id}`,
     fieldName(field),
@@ -942,7 +971,7 @@ function outputGroup(desc, build, onChange) {
   return box;
 }
 
-function previewGroup(desc, build) {
+function previewGroup(desc, build, slots) {
   const urlBox = h("pre", { class: "url-box", tabindex: "0", "aria-label": "Query URL" }, h("code", { class: "url" }, "Building…"));
   const messages = h("div", { class: "messages", "aria-live": "polite" });
   const copy = h("button", { class: "icon-btn icon-btn-small", type: "button", "aria-label": "Copy query URL", title: "Copy URL", onclick: () => lastUrl && copyText(lastUrl) }, icon("copy", 14));
@@ -950,6 +979,21 @@ function previewGroup(desc, build) {
   let lastUrl = "";
   let seq = 0;
   let timer;
+
+  // Custom-pair hints come back indexed among the non-empty pairs the payload sent.
+  const showHints = (hints) => {
+    for (const el of slots.values()) el.hidden = true;
+    const customIds = new Set(desc.fields.filter((f) => f.kind === "custom").map((f) => f.id));
+    const sent = build.custom.flatMap(([p, v], i) => (p.trim() || v.trim() ? [i] : []));
+
+    for (const hint of hints) {
+      const key = customIds.has(hint.field) && hint.index !== undefined ? `${hint.field}:${sent[hint.index]}` : hint.field;
+      const el = slots.get(key);
+      if (!el) continue;
+      el.textContent = hint.message;
+      el.hidden = false;
+    }
+  };
 
   const update = async () => {
     const mine = ++seq;
@@ -962,12 +1006,14 @@ function previewGroup(desc, build) {
       lastUrl = data.url;
       urlBox.replaceChildren(urlView(data.url));
       messages.replaceChildren(...data.warnings.map((w) => notice("warn", w)));
+      showHints(data.value_hints || []);
       next.disabled = false;
       urlBox.classList.remove("stale");
     } catch (error) {
       if (mine !== seq) return;
       // 400s are "this query isn't complete yet" guidance, not failures.
       messages.replaceChildren(notice(error.status === 400 ? "warn" : "error", error.message));
+      showHints([]);
       next.disabled = true;
       urlBox.classList.add("stale");
     }
@@ -994,11 +1040,12 @@ function previewGroup(desc, build) {
 async function builderView(key) {
   const desc = await loadDataset(key);
   const build = getBuild(desc);
-  const preview = previewGroup(desc, build);
+  const slots = new Map();
+  const preview = previewGroup(desc, build, slots);
   const onChange = preview.schedule;
 
   const filters = desc.fields.length
-    ? group("Filters", desc.fields.flatMap((field) => fieldRows(field, build, onChange)))
+    ? group("Filters", desc.fields.flatMap((field) => fieldRows(field, build, onChange, slots)))
     : group("Filters", h("div", { class: "row" }, h("span", { class: "row-label muted" }, "No filters for this dataset.")));
 
   const reset = h(
